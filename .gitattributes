@@ -4,4 +4,5 @@
 *.yaml text eol=lf
 *.json text eol=lf
 *.md text eol=lf
+*.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab
 *.png binary

@@ -1,0 +1,256 @@
+diff --git a/depRicKubernetesOperator/internal/controller/getCustomResourceDefinition.go b/depRicKubernetesOperator/internal/controller/getCustomResourceDefinition.go
+index cde8a44..4a81e60 100644
+--- a/depRicKubernetesOperator/internal/controller/getCustomResourceDefinition.go
++++ b/depRicKubernetesOperator/internal/controller/getCustomResourceDefinition.go
+@@ -9,7 +9,7 @@ func GetCustomResourceDefinition() []*unstructured.Unstructured {
+ 
+ 	customResourceDefinition1 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "apiextensions.k8s.io/v1beta1",
++			"apiVersion": "apiextensions.k8s.io/v1",
+ 			"kind":       "CustomResourceDefinition",
+ 			"metadata": map[string]interface{}{
+ 				"labels": map[string]interface{}{
+@@ -70,7 +70,7 @@ func GetCustomResourceDefinition() []*unstructured.Unstructured {
+ 
+ 	customResourceDefinition2 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "apiextensions.k8s.io/v1beta1",
++			"apiVersion": "apiextensions.k8s.io/v1",
+ 			"kind":       "CustomResourceDefinition",
+ 			"metadata": map[string]interface{}{
+ 				"labels": map[string]interface{}{
+@@ -212,7 +212,7 @@ func GetCustomResourceDefinition() []*unstructured.Unstructured {
+ 				},
+ 				"group": "configuration.konghq.com",
+ 			},
+-			"apiVersion": "apiextensions.k8s.io/v1beta1",
++			"apiVersion": "apiextensions.k8s.io/v1",
+ 			"kind":       "CustomResourceDefinition",
+ 			"metadata": map[string]interface{}{
+ 				"labels": map[string]interface{}{
+@@ -481,7 +481,7 @@ func GetCustomResourceDefinition() []*unstructured.Unstructured {
+ 					},
+ 				},
+ 			},
+-			"apiVersion": "apiextensions.k8s.io/v1beta1",
++			"apiVersion": "apiextensions.k8s.io/v1",
+ 			"kind":       "CustomResourceDefinition",
+ 			"metadata": map[string]interface{}{
+ 				"labels": map[string]interface{}{
+@@ -498,7 +498,7 @@ func GetCustomResourceDefinition() []*unstructured.Unstructured {
+ 
+ 	customResourceDefinition5 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "apiextensions.k8s.io/v1beta1",
++			"apiVersion": "apiextensions.k8s.io/v1",
+ 			"kind":       "CustomResourceDefinition",
+ 			"metadata": map[string]interface{}{
+ 				"labels": map[string]interface{}{
+@@ -559,7 +559,7 @@ func GetCustomResourceDefinition() []*unstructured.Unstructured {
+ 
+ 	customResourceDefinition6 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "apiextensions.k8s.io/v1beta1",
++			"apiVersion": "apiextensions.k8s.io/v1",
+ 			"kind":       "CustomResourceDefinition",
+ 			"metadata": map[string]interface{}{
+ 				"labels": map[string]interface{}{
+@@ -621,7 +621,7 @@ func GetCustomResourceDefinition() []*unstructured.Unstructured {
+ 
+ 	customResourceDefinition7 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "apiextensions.k8s.io/v1beta1",
++			"apiVersion": "apiextensions.k8s.io/v1",
+ 			"kind":       "CustomResourceDefinition",
+ 			"metadata": map[string]interface{}{
+ 				"labels": map[string]interface{}{
+@@ -718,7 +718,7 @@ func GetCustomResourceDefinition() []*unstructured.Unstructured {
+ 
+ 	customResourceDefinition8 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "apiextensions.k8s.io/v1beta1",
++			"apiVersion": "apiextensions.k8s.io/v1",
+ 			"kind":       "CustomResourceDefinition",
+ 			"metadata": map[string]interface{}{
+ 				"labels": map[string]interface{}{
+diff --git a/depRicKubernetesOperator/internal/controller/getIngress.go b/depRicKubernetesOperator/internal/controller/getIngress.go
+index a03a85c..8fc3136 100644
+--- a/depRicKubernetesOperator/internal/controller/getIngress.go
++++ b/depRicKubernetesOperator/internal/controller/getIngress.go
+@@ -12,7 +12,7 @@ func GetIngress() []*unstructured.Unstructured {
+ 
+ 	ingress1 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "networking.k8s.io/v1beta1",
++			"apiVersion": "networking.k8s.io/v1",
+ 			"kind":       "Ingress",
+ 			"metadata": map[string]interface{}{
+ 				"name": "ingress-ricplt-a1mediator",
+@@ -39,7 +39,7 @@ func GetIngress() []*unstructured.Unstructured {
+ 
+ 	ingress2 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "networking.k8s.io/v1beta1",
++			"apiVersion": "networking.k8s.io/v1",
+ 			"kind":       "Ingress",
+ 			"metadata": map[string]interface{}{
+ 				"name": "ingress-ricplt-appmgr",
+@@ -66,7 +66,7 @@ func GetIngress() []*unstructured.Unstructured {
+ 
+ 	ingress3 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "networking.k8s.io/v1beta1",
++			"apiVersion": "networking.k8s.io/v1",
+ 			"kind":       "Ingress",
+ 			"metadata": map[string]interface{}{
+ 				"name": "ingress-ricplt-e2mgr",
+@@ -93,7 +93,7 @@ func GetIngress() []*unstructured.Unstructured {
+ 
+ 	ingress4 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "networking.k8s.io/v1beta1",
++			"apiVersion": "networking.k8s.io/v1",
+ 			"kind":       "Ingress",
+ 			"metadata": map[string]interface{}{
+ 				"name": "ingress-ricplt-rsm",
+@@ -120,7 +120,7 @@ func GetIngress() []*unstructured.Unstructured {
+ 
+ 	ingress5 := &unstructured.Unstructured{
+ 		Object: map[string]interface{}{
+-			"apiVersion": "networking.k8s.io/v1beta1",
++			"apiVersion": "networking.k8s.io/v1",
+ 			"kind":       "Ingress",
+ 			"metadata": map[string]interface{}{
+ 				"name": "ingress-ricplt-xapp-onboarder-chartmuseum",
+@@ -167,7 +167,7 @@ func GetIngress() []*unstructured.Unstructured {
+ 					},
+ 				},
+ 			},
+-			"apiVersion": "networking.k8s.io/v1beta1",
++			"apiVersion": "networking.k8s.io/v1",
+ 			"kind":       "Ingress",
+ 		},
+ 	}
+diff --git a/helm/a1mediator/templates/ingress-a1mediator.yaml b/helm/a1mediator/templates/ingress-a1mediator.yaml
+deleted file mode 100644
+index 9ea794d..0000000
+--- a/helm/a1mediator/templates/ingress-a1mediator.yaml
++++ /dev/null
+@@ -1,15 +0,0 @@
+-apiVersion: networking.k8s.io/v1
+-kind: Ingress
+-metadata:
+-  name: {{ include "common.ingressname.a1mediator" . }}
+-spec:
+-  rules:
+-  - http:
+-      paths:
+-      - path: {{ include "common.kongpath.ric.a1mediator" . }}
+-        pathType: Prefix
+-        backend:
+-          service:
+-            name: {{ include "common.servicename.a1mediator.http" . }}
+-            port:
+-              number: {{ include "common.serviceport.a1mediator.http" . }}
+diff --git a/helm/appmgr/templates/ingress-appmgr.yaml b/helm/appmgr/templates/ingress-appmgr.yaml
+deleted file mode 100644
+index a636991..0000000
+--- a/helm/appmgr/templates/ingress-appmgr.yaml
++++ /dev/null
+@@ -1,15 +0,0 @@
+-apiVersion: networking.k8s.io/v1
+-kind: Ingress
+-metadata:
+-  name: {{ include "common.ingressname.appmgr" . }}
+-spec:
+-  rules:
+-  - http:
+-      paths:
+-        - pathType: Prefix
+-          path: {{ include "common.kongpath.ric.appmgr" . }} 
+-          backend:
+-            service:
+-              name: {{ include "common.servicename.appmgr.http" . }}
+-              port:
+-                number: {{ include "common.serviceport.appmgr.http" . }}
+diff --git a/helm/e2mgr/templates/ingress-e2mgr.yaml b/helm/e2mgr/templates/ingress-e2mgr.yaml
+deleted file mode 100644
+index 9f72cfc..0000000
+--- a/helm/e2mgr/templates/ingress-e2mgr.yaml
++++ /dev/null
+@@ -1,15 +0,0 @@
+-apiVersion: networking.k8s.io/v1
+-kind: Ingress
+-metadata:
+-  name: {{ include "common.ingressname.e2mgr" . }}
+-spec:
+-  rules:
+-  - http:
+-      paths:
+-      - path: {{ include "common.kongpath.ric.e2mgr" . }}
+-        pathType: Prefix
+-        backend:
+-          service:
+-            name: {{ include "common.servicename.e2mgr.http" . }}
+-            port:
+-              number: {{ include "common.serviceport.e2mgr.http" . }}
+diff --git a/helm/infrastructure/values.yaml b/helm/infrastructure/values.yaml
+index 0ca0c84..fc24bf0 100644
+--- a/helm/infrastructure/values.yaml
++++ b/helm/infrastructure/values.yaml
+@@ -85,7 +85,7 @@ danm-network:
+ 
+ 
+ kong:
+-  enabled: true
++  enabled: false
+   ingressController:
+     enabled: true
+ 
+diff --git a/helm/rsm/templates/ingress-rsm.yaml b/helm/rsm/templates/ingress-rsm.yaml
+index bbafd62..98d73e4 100644
+--- a/helm/rsm/templates/ingress-rsm.yaml
++++ b/helm/rsm/templates/ingress-rsm.yaml
+@@ -13,7 +13,7 @@
+ #   See the License for the specific language governing permissions and        #
+ #   limitations under the License.                                             #
+ ################################################################################
+-apiVersion: networking.k8s.io/v1beta1
++apiVersion: networking.k8s.io/v1
+ kind: Ingress
+ metadata:
+   name: {{ include "common.ingressname.rsm" . }}
+diff --git a/helm/xapp-onboarder/templates/ingress-chartmuseum.yaml b/helm/xapp-onboarder/templates/ingress-chartmuseum.yaml
+index 2fbf815..86ac104 100644
+--- a/helm/xapp-onboarder/templates/ingress-chartmuseum.yaml
++++ b/helm/xapp-onboarder/templates/ingress-chartmuseum.yaml
+@@ -1,4 +1,4 @@
+-apiVersion: networking.k8s.io/v1beta1
++apiVersion: networking.k8s.io/v1
+ kind: Ingress
+ metadata:
+   name: {{ include "common.ingressname.xapp-onboarder" . }}-chartmuseum
+diff --git a/helm/xapp-onboarder/templates/ingress-xapp-onboarder.yaml b/helm/xapp-onboarder/templates/ingress-xapp-onboarder.yaml
+index ea47fa6..f6e9b18 100644
+--- a/helm/xapp-onboarder/templates/ingress-xapp-onboarder.yaml
++++ b/helm/xapp-onboarder/templates/ingress-xapp-onboarder.yaml
+@@ -1,4 +1,4 @@
+-apiVersion: networking.k8s.io/v1beta1
++apiVersion: networking.k8s.io/v1
+ kind: Ingress
+ metadata:
+   name: {{ include "common.ingressname.xapp-onboarder" . }}-server
+diff --git a/ric-common/Common-Template/helm/aux-common/templates/_ingress.tpl b/ric-common/Common-Template/helm/aux-common/templates/_ingress.tpl
+index b4afe63..6613ce2 100644
+--- a/ric-common/Common-Template/helm/aux-common/templates/_ingress.tpl
++++ b/ric-common/Common-Template/helm/aux-common/templates/_ingress.tpl
+@@ -60,7 +60,7 @@ nginx.ingress.kubernetes.io/ssl-redirect: "false"
+ {{- if .Values.ingress -}}
+ {{- if .Values.global.ingress -}}
+ {{- if and .Values.ingress.enabled .Values.global.ingress.enabled -}}
+-apiVersion: extensions/v1beta1
++apiVersion: extensions/v1
+ kind: Ingress
+ metadata:
+   name: {{ include "common.fullname" . }}-ingress

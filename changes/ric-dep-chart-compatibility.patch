@@ -1,0 +1,874 @@
+diff --git a/helm/3rdparty/influxdb/templates/ingress.yaml b/helm/3rdparty/influxdb/templates/ingress.yaml
+index c5bbcd4..667e434 100644
+--- a/helm/3rdparty/influxdb/templates/ingress.yaml
++++ b/helm/3rdparty/influxdb/templates/ingress.yaml
+@@ -2,7 +2,7 @@
+ {{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+ apiVersion: networking.k8s.io/v1
+ {{- else }}
+-apiVersion: networking.k8s.io/v1beta1
++apiVersion: networking.k8s.io/v1
+ {{- end }}
+ kind: Ingress
+ metadata:
+diff --git a/helm/3rdparty/influxdb/templates/pdb.yaml b/helm/3rdparty/influxdb/templates/pdb.yaml
+index 32ff0da..c7f6192 100644
+--- a/helm/3rdparty/influxdb/templates/pdb.yaml
++++ b/helm/3rdparty/influxdb/templates/pdb.yaml
+@@ -2,7 +2,7 @@
+ {{- if .Capabilities.APIVersions.Has "policy/v1" }}
+ apiVersion: policy/v1
+ {{- else }}
+-apiVersion: policy/v1beta1
++apiVersion: policy/v1
+ {{- end }}
+ kind: PodDisruptionBudget
+ metadata:
+diff --git a/helm/infrastructure/subcharts/kong/CHANGELOG.md b/helm/infrastructure/subcharts/kong/CHANGELOG.md
+index 7d06c93..18a90ed 100644
+--- a/helm/infrastructure/subcharts/kong/CHANGELOG.md
++++ b/helm/infrastructure/subcharts/kong/CHANGELOG.md
+@@ -487,8 +487,8 @@ you are affected and should review [the 2.26 upgrade instructions](https://githu
+ * Add the `dblessConfig.secret` key to the values file, allowing the user to
+   supply a Secret for their dbless config file.
+   [#695](https://github.com/Kong/charts/pull/695)
+-* Add support for version `v1beta1` of the Gateway API when generating RBAC rules.
+-* Add support for version `v1beta1` of the Gateway API when generating RBAC rules.
++* Add support for version `v1` of the Gateway API when generating RBAC rules.
++* Add support for version `v1` of the Gateway API when generating RBAC rules.
+   ([#706](https://github.com/Kong/charts/pull/706))
+ * Prevent supplying duplicate plugin inclusion to `KONG_PLUGINS` env variable.
+   ([#711](https://github.com/Kong/charts/pull/711))
+@@ -677,7 +677,7 @@ detect whether you use the legacy CRD installation method automatically.
+ * Improved support and documentation for installations that [lack
+   cluster-scoped permissions](https://github.com/Kong/charts/blob/main/charts/kong/README.md#removing-cluster-scoped-permissions).
+   ([565](https://github.com/Kong/charts/pull/565))
+-* Updated podDisruptionBudget from `policy/v1beta1` to `policy/v1`.
++* Updated podDisruptionBudget from `policy/v1` to `policy/v1`.
+   ([574](https://github.com/Kong/charts/pull/574))
+ * Updated controller version to 2.3.
+ 
+@@ -857,7 +857,7 @@ kubectl apply -f https://raw.githubusercontent.com/Kong/charts/main/charts/kong/
+ 
+ ### Breaking Changes
+ 
+-* Upgraded CRDs to V1 from the previous deprecated v1beta1.
++* Upgraded CRDs to V1 from the previous deprecated v1.
+   [#391](https://github.com/kong/charts/issues/391)
+   ACTION REQUIRED: This is a breaking change as it makes
+   this chart incompatible with Kubernetes clusters older
+@@ -887,7 +887,7 @@ kubectl apply -f https://raw.githubusercontent.com/Kong/charts/main/charts/kong/
+ * Updated default Kong versions to 2.5 (OSS) and 2.5.0.0 (Enterprise).
+ * Added user-configured initContainer support to Jobs.
+   ([#408](https://github.com/Kong/charts/pull/408))
+-* Upgraded RBAC resources to v1 from v1beta1 for compatibility with Kubernetes
++* Upgraded RBAC resources to v1 from v1 for compatibility with Kubernetes
+   1.22 and newer. This breaks compatibility with Kubernetes 1.7 and older, but
+   these Kubernetes versions were never supported, so this change is not
+   breaking. Added additional permissions to support KIC 2.x.
+diff --git a/helm/infrastructure/subcharts/kong/UPGRADE.md b/helm/infrastructure/subcharts/kong/UPGRADE.md
+index 8935277..54b7d18 100644
+--- a/helm/infrastructure/subcharts/kong/UPGRADE.md
++++ b/helm/infrastructure/subcharts/kong/UPGRADE.md
+@@ -293,7 +293,7 @@ upgrading.
+ ### Updated CRDs and CRD API version
+ 
+ 2.3.0 adds new and updated CRDs for KIC 2.x. These CRDs are compatible with
+-KIC 1.x also. The CRD API version is now v1, replacing the deprecated v1beta1,
++KIC 1.x also. The CRD API version is now v1, replacing the deprecated v1,
+ to support Kubernetes 1.22 and onward. API version v1 requires Kubernetes 1.16
+ and newer.
+ 
+diff --git a/helm/infrastructure/subcharts/kong/charts/postgresql/charts/common/templates/_capabilities.tpl b/helm/infrastructure/subcharts/kong/charts/postgresql/charts/common/templates/_capabilities.tpl
+index 9d9b760..b6576bb 100644
+--- a/helm/infrastructure/subcharts/kong/charts/postgresql/charts/common/templates/_capabilities.tpl
++++ b/helm/infrastructure/subcharts/kong/charts/postgresql/charts/common/templates/_capabilities.tpl
+@@ -20,7 +20,7 @@ Return the appropriate apiVersion for poddisruptionbudget.
+ */}}
+ {{- define "common.capabilities.policy.apiVersion" -}}
+ {{- if semverCompare "<1.21-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "policy/v1beta1" -}}
++{{- print "policy/v1" -}}
+ {{- else -}}
+ {{- print "policy/v1" -}}
+ {{- end -}}
+@@ -31,7 +31,7 @@ Return the appropriate apiVersion for networkpolicy.
+ */}}
+ {{- define "common.capabilities.networkPolicy.apiVersion" -}}
+ {{- if semverCompare "<1.7-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "extensions/v1beta1" -}}
++{{- print "extensions/v1" -}}
+ {{- else -}}
+ {{- print "networking.k8s.io/v1" -}}
+ {{- end -}}
+@@ -42,7 +42,7 @@ Return the appropriate apiVersion for cronjob.
+ */}}
+ {{- define "common.capabilities.cronjob.apiVersion" -}}
+ {{- if semverCompare "<1.21-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "batch/v1beta1" -}}
++{{- print "batch/v1" -}}
+ {{- else -}}
+ {{- print "batch/v1" -}}
+ {{- end -}}
+@@ -53,7 +53,7 @@ Return the appropriate apiVersion for deployment.
+ */}}
+ {{- define "common.capabilities.deployment.apiVersion" -}}
+ {{- if semverCompare "<1.14-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "extensions/v1beta1" -}}
++{{- print "extensions/v1" -}}
+ {{- else -}}
+ {{- print "apps/v1" -}}
+ {{- end -}}
+@@ -64,7 +64,7 @@ Return the appropriate apiVersion for statefulset.
+ */}}
+ {{- define "common.capabilities.statefulset.apiVersion" -}}
+ {{- if semverCompare "<1.14-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "apps/v1beta1" -}}
++{{- print "apps/v1" -}}
+ {{- else -}}
+ {{- print "apps/v1" -}}
+ {{- end -}}
+@@ -78,16 +78,16 @@ Return the appropriate apiVersion for ingress.
+ {{- if .Values.ingress.apiVersion -}}
+ {{- .Values.ingress.apiVersion -}}
+ {{- else if semverCompare "<1.14-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "extensions/v1beta1" -}}
++{{- print "extensions/v1" -}}
+ {{- else if semverCompare "<1.19-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "networking.k8s.io/v1beta1" -}}
++{{- print "networking.k8s.io/v1" -}}
+ {{- else -}}
+ {{- print "networking.k8s.io/v1" -}}
+ {{- end }}
+ {{- else if semverCompare "<1.14-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "extensions/v1beta1" -}}
++{{- print "extensions/v1" -}}
+ {{- else if semverCompare "<1.19-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "networking.k8s.io/v1beta1" -}}
++{{- print "networking.k8s.io/v1" -}}
+ {{- else -}}
+ {{- print "networking.k8s.io/v1" -}}
+ {{- end -}}
+@@ -98,7 +98,7 @@ Return the appropriate apiVersion for RBAC resources.
+ */}}
+ {{- define "common.capabilities.rbac.apiVersion" -}}
+ {{- if semverCompare "<1.17-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "rbac.authorization.k8s.io/v1beta1" -}}
++{{- print "rbac.authorization.k8s.io/v1" -}}
+ {{- else -}}
+ {{- print "rbac.authorization.k8s.io/v1" -}}
+ {{- end -}}
+@@ -109,7 +109,7 @@ Return the appropriate apiVersion for CRDs.
+ */}}
+ {{- define "common.capabilities.crd.apiVersion" -}}
+ {{- if semverCompare "<1.19-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "apiextensions.k8s.io/v1beta1" -}}
++{{- print "apiextensions.k8s.io/v1" -}}
+ {{- else -}}
+ {{- print "apiextensions.k8s.io/v1" -}}
+ {{- end -}}
+@@ -120,7 +120,7 @@ Return the appropriate apiVersion for APIService.
+ */}}
+ {{- define "common.capabilities.apiService.apiVersion" -}}
+ {{- if semverCompare "<1.10-0" (include "common.capabilities.kubeVersion" .) -}}
+-{{- print "apiregistration.k8s.io/v1beta1" -}}
++{{- print "apiregistration.k8s.io/v1" -}}
+ {{- else -}}
+ {{- print "apiregistration.k8s.io/v1" -}}
+ {{- end -}}
+diff --git a/helm/infrastructure/subcharts/kong/charts/postgresql/charts/common/templates/_ingress.tpl b/helm/infrastructure/subcharts/kong/charts/postgresql/charts/common/templates/_ingress.tpl
+index 831da9c..656fdf2 100644
+--- a/helm/infrastructure/subcharts/kong/charts/postgresql/charts/common/templates/_ingress.tpl
++++ b/helm/infrastructure/subcharts/kong/charts/postgresql/charts/common/templates/_ingress.tpl
+@@ -13,7 +13,7 @@ Params:
+ */}}
+ {{- define "common.ingress.backend" -}}
+ {{- $apiVersion := (include "common.capabilities.ingress.apiVersion" .context) -}}
+-{{- if or (eq $apiVersion "extensions/v1beta1") (eq $apiVersion "networking.k8s.io/v1beta1") -}}
++{{- if or (eq $apiVersion "extensions/v1") (eq $apiVersion "networking.k8s.io/v1") -}}
+ serviceName: {{ .serviceName }}
+ servicePort: {{ .servicePort }}
+ {{- else -}}
+diff --git a/helm/infrastructure/subcharts/kong/charts/postgresql/templates/psp.yaml b/helm/infrastructure/subcharts/kong/charts/postgresql/templates/psp.yaml
+index 48d1175..733c2d2 100644
+--- a/helm/infrastructure/subcharts/kong/charts/postgresql/templates/psp.yaml
++++ b/helm/infrastructure/subcharts/kong/charts/postgresql/templates/psp.yaml
+@@ -1,6 +1,6 @@
+ {{- $pspAvailable := (semverCompare "<1.25-0" (include "common.capabilities.kubeVersion" .)) -}}
+ {{- if and $pspAvailable .Values.psp.create }}
+-apiVersion: policy/v1beta1
++apiVersion: policy/v1
+ kind: PodSecurityPolicy
+ metadata:
+   name: {{ include "common.names.fullname" . }}
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/custom-labels-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/custom-labels-values.snap
+index 70b631e..0504d88 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/custom-labels-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/custom-labels-values.snap
+@@ -15,7 +15,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -65,7 +65,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/default-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/default-values.snap
+index 0733fed..ceb6130 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/default-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/default-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-1-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-1-values.snap
+index 3de415c..34ae07a 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-1-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-1-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-2-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-2-values.snap
+index 456a421..0fa9eb2 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-2-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-2-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-3-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-3-values.snap
+index 7c37f23..c9427e9 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-3-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-3-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-4-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-4-values.snap
+index 0a8f0fb..10d1871 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-4-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-4-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-5-3.1-rbac-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-5-3.1-rbac-values.snap
+index 4eb6e98..a47340f 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-5-3.1-rbac-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/kong-ingress-5-3.1-rbac-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/proxy-appprotocol-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/proxy-appprotocol-values.snap
+index c53f006..fe02b94 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/proxy-appprotocol-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/proxy-appprotocol-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/service-account.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/service-account.snap
+index acfde1e..3e25ce8 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/service-account.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/service-account.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/single-image-default-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/single-image-default-values.snap
+index 2f242db..5ac1188 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/single-image-default-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/single-image-default-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/test1-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/test1-values.snap
+index 8f5070e..4e00860 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/test1-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/test1-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/test2-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/test2-values.snap
+index 6412459..35f095d 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/test2-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/test2-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/ci/__snapshots__/test5-values.snap b/helm/infrastructure/subcharts/kong/ci/__snapshots__/test5-values.snap
+index 2d3f4ba..6188d08 100644
+--- a/helm/infrastructure/subcharts/kong/ci/__snapshots__/test5-values.snap
++++ b/helm/infrastructure/subcharts/kong/ci/__snapshots__/test5-values.snap
+@@ -14,7 +14,7 @@ SnapShot = """
+         namespace: default
+     webhooks:
+         - admissionReviewVersions:
+-            - v1beta1
++            - v1
+           clientConfig:
+             caBundle: '###DYNAMIC_FIELD###'
+             service:
+@@ -64,7 +64,7 @@ SnapShot = """
+                 - gateway.networking.k8s.io
+               apiVersions:
+                 - v1alpha2
+-                - v1beta1
++                - v1
+                 - v1
+               operations:
+                 - CREATE
+diff --git a/helm/infrastructure/subcharts/kong/crds/custom-resource-definitions.yaml b/helm/infrastructure/subcharts/kong/crds/custom-resource-definitions.yaml
+index 08081b9..82959c6 100644
+--- a/helm/infrastructure/subcharts/kong/crds/custom-resource-definitions.yaml
++++ b/helm/infrastructure/subcharts/kong/crds/custom-resource-definitions.yaml
+@@ -404,7 +404,7 @@ spec:
+     - jsonPath: .status.conditions[?(@.type=="Programmed")].status
+       name: Programmed
+       type: string
+-    name: v1beta1
++    name: v1
+     schema:
+       openAPIV3Schema:
+         description: KongConsumerGroup is the Schema for the kongconsumergroups API.
+@@ -1640,7 +1640,7 @@ spec:
+     singular: kongupstreampolicy
+   scope: Namespaced
+   versions:
+-  - name: v1beta1
++  - name: v1
+     schema:
+       openAPIV3Schema:
+         description: |-
+@@ -2585,7 +2585,7 @@ spec:
+       jsonPath: .metadata.creationTimestamp
+       name: Age
+       type: date
+-    name: v1beta1
++    name: v1
+     schema:
+       openAPIV3Schema:
+         description: TCPIngress is the Schema for the tcpingresses API.
+@@ -2663,7 +2663,7 @@ spec:
+               tls:
+                 description: |-
+                   TLS configuration. This is similar to the `tls` section in the
+-                  Ingress resource in networking.v1beta1 group.
++                  Ingress resource in networking.v1 group.
+                   The mapping of SNIs to TLS cert-key pair defined here will be
+                   used for HTTP Ingress rules as well. Once can define the mapping in
+                   this resource or the original Ingress resource, both have the same
+@@ -2793,7 +2793,7 @@ spec:
+       jsonPath: .metadata.creationTimestamp
+       name: Age
+       type: date
+-    name: v1beta1
++    name: v1
+     schema:
+       openAPIV3Schema:
+         description: UDPIngress is the Schema for the udpingresses API.
+diff --git a/helm/infrastructure/subcharts/kong/templates/_helpers.tpl b/helm/infrastructure/subcharts/kong/templates/_helpers.tpl
+index 2dab586..4a250a2 100644
+--- a/helm/infrastructure/subcharts/kong/templates/_helpers.tpl
++++ b/helm/infrastructure/subcharts/kong/templates/_helpers.tpl
+@@ -1497,7 +1497,7 @@ resource roles into their separate templates.
+   - get
+   - patch
+   - update
+-{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
++{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
+ - apiGroups:
+   - gateway.networking.k8s.io
+   resources:
+@@ -1716,7 +1716,7 @@ Kubernetes Cluster-scoped resources it uses to build Kong configuration.
+   - list
+   - watch
+ {{- end }}
+-{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
++{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
+ - apiGroups:
+   - gateway.networking.k8s.io
+   resources:
+@@ -1762,10 +1762,10 @@ autoscaling/v1
+ {{- end -}}
+ 
+ {{- define "kong.policyVersion" -}}
+-{{- if (.Capabilities.APIVersions.Has "policy/v1beta1" ) -}}
+-policy/v1beta1
++{{- if (.Capabilities.APIVersions.Has "policy/v1" ) -}}
++policy/v1
+ {{- else -}}
+-{{- fail (printf "Cluster doesn't have policy/v1beta1 API." ) }}
++{{- fail (printf "Cluster doesn't have policy/v1 API." ) }}
+ {{- end -}}
+ {{- end -}}
+ 
+@@ -1780,10 +1780,10 @@ policy/v1beta1
+ {{- define "kong.ingressVersion" -}}
+ {{- if (.Capabilities.APIVersions.Has "networking.k8s.io/v1") -}}
+ networking.k8s.io/v1
+-{{- else if (.Capabilities.APIVersions.Has "networking.k8s.io/v1beta1") -}}
+-networking.k8s.io/v1beta1
++{{- else if (.Capabilities.APIVersions.Has "networking.k8s.io/v1") -}}
++networking.k8s.io/v1
+ {{- else -}}
+-extensions/v1beta1
++extensions/v1
+ {{- end -}}
+ {{- end -}}
+ 
+diff --git a/helm/infrastructure/subcharts/kong/templates/admission-webhook.yaml b/helm/infrastructure/subcharts/kong/templates/admission-webhook.yaml
+index 979f1c0..32a7440 100644
+--- a/helm/infrastructure/subcharts/kong/templates/admission-webhook.yaml
++++ b/helm/infrastructure/subcharts/kong/templates/admission-webhook.yaml
+@@ -27,7 +27,7 @@ kind: ValidatingWebhookConfiguration
+ {{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1" }}
+ apiVersion: admissionregistration.k8s.io/v1
+ {{- else }}
+-apiVersion: admissionregistration.k8s.io/v1beta1
++apiVersion: admissionregistration.k8s.io/v1
+ {{- end }}
+ metadata:
+   name: {{ template "kong.fullname" . }}-validations
+@@ -57,7 +57,7 @@ webhooks:
+       - helm
+   failurePolicy: {{ .Values.ingressController.admissionWebhook.failurePolicy }}
+   sideEffects: None
+-  admissionReviewVersions: ["v1beta1"]
++  admissionReviewVersions: ["v1"]
+   rules:
+   - apiGroups:
+     - configuration.konghq.com
+@@ -103,7 +103,7 @@ webhooks:
+     - gateway.networking.k8s.io
+     apiVersions:
+     - 'v1alpha2'
+-    - 'v1beta1'
++    - 'v1'
+ {{- if (semverCompare ">= 3.0.0" (include "kong.effectiveVersion" .Values.ingressController.image)) }}
+     - 'v1'
+ {{- end }}
+diff --git a/helm/infrastructure/subcharts/kong/templates/custom-resource-definitions.yaml b/helm/infrastructure/subcharts/kong/templates/custom-resource-definitions.yaml
+index 5a6dda1..40fbdcf 100644
+--- a/helm/infrastructure/subcharts/kong/templates/custom-resource-definitions.yaml
++++ b/helm/infrastructure/subcharts/kong/templates/custom-resource-definitions.yaml
+@@ -14,8 +14,8 @@
+   {{- if .Capabilities.APIVersions.Has "apiextensions.k8s.io/v1/CustomResourceDefinition" -}}
+     {{- $kongPluginCRD = (lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" "" "kongplugins.configuration.konghq.com") -}}
+   {{- else -}}
+-    {{/* TODO: remove the v1beta1 path when we no longer support k8s <1.16 */}}
+-    {{- $kongPluginCRD = (lookup "apiextensions.k8s.io/v1beta1" "CustomResourceDefinition" "" "kongplugins.configuration.konghq.com") -}}
++    {{/* TODO: remove the v1 path when we no longer support k8s <1.16 */}}
++    {{- $kongPluginCRD = (lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" "" "kongplugins.configuration.konghq.com") -}}
+   {{- end -}}
+   {{- if $kongPluginCRD -}}
+     {{- if (hasKey $kongPluginCRD.metadata "annotations") -}}
+diff --git a/helm/infrastructure/subcharts/kong/templates/tests/test-resources.yaml b/helm/infrastructure/subcharts/kong/templates/tests/test-resources.yaml
+index 79e32d7..f7e5032 100644
+--- a/helm/infrastructure/subcharts/kong/templates/tests/test-resources.yaml
++++ b/helm/infrastructure/subcharts/kong/templates/tests/test-resources.yaml
+@@ -46,14 +46,14 @@ spec:
+             port:
+               number: 80
+ ---
+-apiVersion: gateway.networking.k8s.io/v1beta1
++apiVersion: gateway.networking.k8s.io/v1
+ kind: GatewayClass
+ metadata:
+   name: "{{ .Release.Name }}-kong-test"
+ spec:
+   controllerName: konghq.com/kic-gateway-controller
+ ---
+-apiVersion: gateway.networking.k8s.io/v1beta1
++apiVersion: gateway.networking.k8s.io/v1
+ kind: Gateway
+ metadata:
+   name: "{{ .Release.Name }}-kong-test"
+@@ -66,7 +66,7 @@ spec:
+     protocol: HTTP
+     port: 80
+ ---
+-apiVersion: gateway.networking.k8s.io/v1beta1
++apiVersion: gateway.networking.k8s.io/v1
+ kind: HTTPRoute
+ metadata:
+   name: "{{ .Release.Name }}-httpbin"
+diff --git a/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/clusterrole.yaml b/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/clusterrole.yaml
+index 319aec1..a9198b8 100644
+--- a/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/clusterrole.yaml
++++ b/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/clusterrole.yaml
+@@ -1,5 +1,5 @@
+ {{- if .Values.rbac.create -}}
+-apiVersion: rbac.authorization.k8s.io/v1beta1
++apiVersion: rbac.authorization.k8s.io/v1
+ kind: ClusterRole
+ metadata:
+   labels:
+diff --git a/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/clusterrolebinding.yaml b/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/clusterrolebinding.yaml
+index 4635985..160db8b 100644
+--- a/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/clusterrolebinding.yaml
++++ b/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/clusterrolebinding.yaml
+@@ -1,5 +1,5 @@
+ {{- if .Values.rbac.create -}}
+-apiVersion: rbac.authorization.k8s.io/v1beta1
++apiVersion: rbac.authorization.k8s.io/v1
+ kind: ClusterRoleBinding
+ metadata:
+   labels:
+diff --git a/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/podsecuritypolicy.yaml b/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/podsecuritypolicy.yaml
+index aeff117..3592984 100644
+--- a/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/podsecuritypolicy.yaml
++++ b/helm/infrastructure/subcharts/prometheus/charts/kube-state-metrics/templates/podsecuritypolicy.yaml
+@@ -1,5 +1,5 @@
+ {{- if .Values.podSecurityPolicy.enabled }}
+-apiVersion: policy/v1beta1
++apiVersion: policy/v1
+ kind: PodSecurityPolicy
+ metadata:
+   name: {{ template "kube-state-metrics.fullname" . }}
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/_helpers.tpl b/helm/infrastructure/subcharts/prometheus/templates/_helpers.tpl
+index f2e0329..1d18a08 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/_helpers.tpl
++++ b/helm/infrastructure/subcharts/prometheus/templates/_helpers.tpl
+@@ -157,7 +157,7 @@ Return the appropriate apiVersion for deployment.
+ */}}
+ {{- define "prometheus.deployment.apiVersion" -}}
+ {{- if semverCompare "<1.9-0" .Capabilities.KubeVersion.GitVersion -}}
+-{{- print "extensions/v1beta1" -}}
++{{- print "extensions/v1" -}}
+ {{- else if semverCompare "^1.9-0" .Capabilities.KubeVersion.GitVersion -}}
+ {{- print "apps/v1" -}}
+ {{- end -}}
+@@ -167,7 +167,7 @@ Return the appropriate apiVersion for daemonset.
+ */}}
+ {{- define "prometheus.daemonset.apiVersion" -}}
+ {{- if semverCompare "<1.9-0" .Capabilities.KubeVersion.GitVersion -}}
+-{{- print "extensions/v1beta1" -}}
++{{- print "extensions/v1" -}}
+ {{- else if semverCompare "^1.9-0" .Capabilities.KubeVersion.GitVersion -}}
+ {{- print "apps/v1" -}}
+ {{- end -}}
+@@ -177,7 +177,7 @@ Return the appropriate apiVersion for networkpolicy.
+ */}}
+ {{- define "prometheus.networkPolicy.apiVersion" -}}
+ {{- if semverCompare ">=1.4-0, <1.7-0" .Capabilities.KubeVersion.GitVersion -}}
+-{{- print "extensions/v1beta1" -}}
++{{- print "extensions/v1" -}}
+ {{- else if semverCompare "^1.7-0" .Capabilities.KubeVersion.GitVersion -}}
+ {{- print "networking.k8s.io/v1" -}}
+ {{- end -}}
+@@ -187,9 +187,9 @@ Return the appropriate apiVersion for podsecuritypolicy.
+ */}}
+ {{- define "prometheus.podSecurityPolicy.apiVersion" -}}
+ {{- if semverCompare ">=1.3-0, <1.10-0" .Capabilities.KubeVersion.GitVersion -}}
+-{{- print "extensions/v1beta1" -}}
++{{- print "extensions/v1" -}}
+ {{- else if semverCompare "^1.10-0" .Capabilities.KubeVersion.GitVersion -}}
+-{{- print "policy/v1beta1" -}}
++{{- print "policy/v1" -}}
+ {{- end -}}
+ {{- end -}}
+ 
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/alertmanager-ingress.yaml b/helm/infrastructure/subcharts/prometheus/templates/alertmanager-ingress.yaml
+index b199b70..910c093 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/alertmanager-ingress.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/alertmanager-ingress.yaml
+@@ -3,10 +3,10 @@
+ {{- $serviceName := include "prometheus.alertmanager.fullname" . }}
+ {{- $servicePort := .Values.alertmanager.service.servicePort -}}
+ {{- $extraPaths := .Values.alertmanager.ingress.extraPaths -}}
+-{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1beta1" }}
+-apiVersion: networking.k8s.io/v1beta1
++{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1" }}
++apiVersion: networking.k8s.io/v1
+ {{ else }}
+-apiVersion: extensions/v1beta1
++apiVersion: extensions/v1
+ {{ end -}}
+ kind: Ingress
+ metadata:
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/alertmanager-pdb.yaml b/helm/infrastructure/subcharts/prometheus/templates/alertmanager-pdb.yaml
+index 41a92f3..45eabdd 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/alertmanager-pdb.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/alertmanager-pdb.yaml
+@@ -1,5 +1,5 @@
+ {{- if .Values.alertmanager.podDisruptionBudget.enabled }}
+-apiVersion: policy/v1beta1
++apiVersion: policy/v1
+ kind: PodDisruptionBudget
+ metadata:
+   name: {{ template "prometheus.alertmanager.fullname" . }}
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/node-exporter-role.yaml b/helm/infrastructure/subcharts/prometheus/templates/node-exporter-role.yaml
+index a6134a2..4d898d3 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/node-exporter-role.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/node-exporter-role.yaml
+@@ -1,6 +1,6 @@
+ {{- if and .Values.nodeExporter.enabled .Values.rbac.create }}
+ {{- if or (default .Values.nodeExporter.podSecurityPolicy.enabled false) (.Values.podSecurityPolicy.enabled) }}
+-apiVersion: rbac.authorization.k8s.io/v1beta1
++apiVersion: rbac.authorization.k8s.io/v1
+ kind: Role
+ metadata:
+   name: {{ template "prometheus.nodeExporter.fullname" . }}
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/pushgateway-clusterrole.yaml b/helm/infrastructure/subcharts/prometheus/templates/pushgateway-clusterrole.yaml
+index f4393c9..dd108d8 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/pushgateway-clusterrole.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/pushgateway-clusterrole.yaml
+@@ -1,5 +1,5 @@
+ {{- if and .Values.pushgateway.enabled .Values.rbac.create -}}
+-apiVersion: rbac.authorization.k8s.io/v1beta1
++apiVersion: rbac.authorization.k8s.io/v1
+ kind: ClusterRole
+ metadata:
+   labels:
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/pushgateway-clusterrolebinding.yaml b/helm/infrastructure/subcharts/prometheus/templates/pushgateway-clusterrolebinding.yaml
+index afdaaf1..694a9d1 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/pushgateway-clusterrolebinding.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/pushgateway-clusterrolebinding.yaml
+@@ -1,5 +1,5 @@
+ {{- if and .Values.pushgateway.enabled .Values.rbac.create -}}
+-apiVersion: rbac.authorization.k8s.io/v1beta1
++apiVersion: rbac.authorization.k8s.io/v1
+ kind: ClusterRoleBinding
+ metadata:
+   labels:
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/pushgateway-ingress.yaml b/helm/infrastructure/subcharts/prometheus/templates/pushgateway-ingress.yaml
+index 0c877d5..3af627e 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/pushgateway-ingress.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/pushgateway-ingress.yaml
+@@ -3,10 +3,10 @@
+ {{- $serviceName := include "prometheus.pushgateway.fullname" . }}
+ {{- $servicePort := .Values.pushgateway.service.servicePort -}}
+ {{- $extraPaths := .Values.pushgateway.ingress.extraPaths -}}
+-{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1beta1" }}
+-apiVersion: networking.k8s.io/v1beta1
++{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1" }}
++apiVersion: networking.k8s.io/v1
+ {{ else }}
+-apiVersion: extensions/v1beta1
++apiVersion: extensions/v1
+ {{ end -}}
+ kind: Ingress
+ metadata:
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/pushgateway-pdb.yaml b/helm/infrastructure/subcharts/prometheus/templates/pushgateway-pdb.yaml
+index 50beb48..e2e32bf 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/pushgateway-pdb.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/pushgateway-pdb.yaml
+@@ -1,5 +1,5 @@
+ {{- if .Values.pushgateway.podDisruptionBudget.enabled }}
+-apiVersion: policy/v1beta1
++apiVersion: policy/v1
+ kind: PodDisruptionBudget
+ metadata:
+   name: {{ template "prometheus.pushgateway.fullname" . }}
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/server-ingress.yaml b/helm/infrastructure/subcharts/prometheus/templates/server-ingress.yaml
+index b3a51fa..bd1a437 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/server-ingress.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/server-ingress.yaml
+@@ -4,10 +4,10 @@
+ {{- $serviceName := include "prometheus.server.fullname" . }}
+ {{- $servicePort := .Values.server.service.servicePort -}}
+ {{- $extraPaths := .Values.server.ingress.extraPaths -}}
+-{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1beta1" }}
+-apiVersion: networking.k8s.io/v1beta1
++{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1" }}
++apiVersion: networking.k8s.io/v1
+ {{ else }}
+-apiVersion: extensions/v1beta1
++apiVersion: extensions/v1
+ {{ end -}}
+ kind: Ingress
+ metadata:
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/server-pdb.yaml b/helm/infrastructure/subcharts/prometheus/templates/server-pdb.yaml
+index 364cb5b..269d8ad 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/server-pdb.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/server-pdb.yaml
+@@ -1,5 +1,5 @@
+ {{- if .Values.server.podDisruptionBudget.enabled }}
+-apiVersion: policy/v1beta1
++apiVersion: policy/v1
+ kind: PodDisruptionBudget
+ metadata:
+   name: {{ template "prometheus.server.fullname" . }}
+diff --git a/helm/infrastructure/subcharts/prometheus/templates/server-vpa.yaml b/helm/infrastructure/subcharts/prometheus/templates/server-vpa.yaml
+index 8f55b9b..7dbf350 100644
+--- a/helm/infrastructure/subcharts/prometheus/templates/server-vpa.yaml
++++ b/helm/infrastructure/subcharts/prometheus/templates/server-vpa.yaml
+@@ -13,7 +13,7 @@ spec:
+     apiVersion: "apps/v1"
+     kind: StatefulSet
+ {{- else }}
+-    apiVersion: "extensions/v1beta1"
++    apiVersion: "extensions/v1"
+     kind: Deployment
+ {{- end }}
+     name: {{ template "prometheus.server.fullname" . }}

@@ -1,0 +1,174 @@
+diff --git a/install/helm/global-values.yaml b/install/helm/global-values.yaml
+index 7b4aa38..da324cd 100644
+--- a/install/helm/global-values.yaml
++++ b/install/helm/global-values.yaml
+@@ -16,5 +16,5 @@
+ #
+ 
+ global:
+-  extimagerepo:
++  extimagerepo: ""
+   numhttpsservers: 10
+diff --git a/install/helm/nrt-base-1/charts/strimzi-kafka/templates/app-kafka.yaml b/install/helm/nrt-base-1/charts/strimzi-kafka/templates/app-kafka.yaml
+index de55ff6..1d2b1de 100644
+--- a/install/helm/nrt-base-1/charts/strimzi-kafka/templates/app-kafka.yaml
++++ b/install/helm/nrt-base-1/charts/strimzi-kafka/templates/app-kafka.yaml
+@@ -22,7 +22,7 @@ metadata:
+   namespace: nonrtric
+ spec:
+   kafka:
+-    version: 3.5.0
++    version: 3.7.1
+     replicas: 1
+     listeners:
+       - name: plain
+diff --git a/install/helm/nrt-pm-rapp/templates/app-pod.yaml b/install/helm/nrt-pm-rapp/templates/app-pod.yaml
+index 2264dfa..50d4fbc 100644
+--- a/install/helm/nrt-pm-rapp/templates/app-pod.yaml
++++ b/install/helm/nrt-pm-rapp/templates/app-pod.yaml
+@@ -25,12 +25,8 @@ metadata:
+ spec:
+   containers:
+   - name: pm-rapp
+-    image: {{ .Values.global.extimagerepo }}/pm-rapp:latest
+-    {{- if .Values.global.extimagerepo }}
+-    imagePullPolicy: Always
+-    {{- else }}
++    image: pm-rapp:1.0.0
+     imagePullPolicy: Never
+-    {{- end }}
+     ports:
+     - name: http
+       containerPort: 80
+diff --git a/install/helm/nrt-pm/charts/ics/templates/app-configmap.yaml b/install/helm/nrt-pm/charts/ics/templates/app-configmap.yaml
+index 7437ca0..5aff078 100644
+--- a/install/helm/nrt-pm/charts/ics/templates/app-configmap.yaml
++++ b/install/helm/nrt-pm/charts/ics/templates/app-configmap.yaml
+@@ -18,7 +18,7 @@
+ apiVersion: v1
+ kind: ConfigMap
+ metadata:
+-  name: informationservice-cm-config
++  name: informationservice-ranpm-cm-config
+   namespace: nonrtric
+ 
+ data:
+diff --git a/install/helm/nrt-pm/charts/ics/templates/app-deployment.yaml b/install/helm/nrt-pm/charts/ics/templates/app-deployment.yaml
+index f32d62f..73c1f77 100644
+--- a/install/helm/nrt-pm/charts/ics/templates/app-deployment.yaml
++++ b/install/helm/nrt-pm/charts/ics/templates/app-deployment.yaml
+@@ -18,22 +18,22 @@
+ apiVersion: apps/v1
+ kind: Deployment
+ metadata:
+-  name: informationservice
++  name: informationservice-ranpm
+   namespace: nonrtric
+   labels:
+-    app: informationservice
++    app: informationservice-ranpm
+ spec:
+   replicas: 1
+   selector:
+     matchLabels:
+-      app: informationservice
++      app: informationservice-ranpm
+   template:
+     metadata:
+       labels:
+-        app: informationservice
++        app: informationservice-ranpm
+     spec:
+       containers:
+-      - name: informationservice
++      - name: informationservice-ranpm
+         image: nexus3.o-ran-sc.org:10002/o-ran-sc/nonrtric-plt-informationcoordinatorservice:1.5.0
+         imagePullPolicy: Always
+         ports:
+@@ -44,9 +44,9 @@ spec:
+         volumeMounts:
+         - mountPath: /opt/app/information-coordinator-service/config/application.yaml
+           subPath: application.yaml
+-          name: informationservice-cm-config
++          name: informationservice-ranpm-cm-config
+       volumes:
+       - configMap:
+           defaultMode: 420
+-          name: informationservice-cm-config
+-        name: informationservice-cm-config
+\ No newline at end of file
++          name: informationservice-ranpm-cm-config
++        name: informationservice-ranpm-cm-config
+\ No newline at end of file
+diff --git a/install/helm/nrt-pm/charts/ics/templates/app-ra-ap.yaml b/install/helm/nrt-pm/charts/ics/templates/app-ra-ap.yaml
+index 23c0690..5845f91 100644
+--- a/install/helm/nrt-pm/charts/ics/templates/app-ra-ap.yaml
++++ b/install/helm/nrt-pm/charts/ics/templates/app-ra-ap.yaml
+@@ -22,7 +22,7 @@ metadata:
+ spec:
+   selector:
+     matchLabels:
+-      app: informationservice
++      app: informationservice-ranpm
+   jwtRules:
+   - issuer: "http://keycloak.nonrtric:8080/realms/nonrtric-realm"
+     jwksUri: "http://keycloak.nonrtric:8080/realms/nonrtric-realm/protocol/openid-connect/certs"
+@@ -38,7 +38,7 @@ metadata:
+ spec:
+   selector:
+     matchLabels:
+-      app: informationservice
++      app: informationservice-ranpm
+   rules:
+   - from:
+     - source:
+diff --git a/install/helm/nrt-pm/charts/ics/templates/app-service.yaml b/install/helm/nrt-pm/charts/ics/templates/app-service.yaml
+index b96c9e3..c9339dc 100644
+--- a/install/helm/nrt-pm/charts/ics/templates/app-service.yaml
++++ b/install/helm/nrt-pm/charts/ics/templates/app-service.yaml
+@@ -18,10 +18,10 @@
+ apiVersion: v1
+ kind: Service
+ metadata:
+-  name: informationservice
++  name: informationservice-ranpm
+   namespace: nonrtric
+   labels:
+-    app: informationservice
++    app: informationservice-ranpm
+ spec:
+   type: NodePort
+   ports:
+@@ -36,4 +36,4 @@ spec:
+     name: https
+     nodePort: 31824
+   selector:
+-    app: informationservice
+\ No newline at end of file
++    app: informationservice-ranpm
+\ No newline at end of file
+diff --git a/install/helm/ran/templates/app-deployment.yaml b/install/helm/ran/templates/app-deployment.yaml
+index 88e219a..d79cd0e 100644
+--- a/install/helm/ran/templates/app-deployment.yaml
++++ b/install/helm/ran/templates/app-deployment.yaml
+@@ -60,12 +60,8 @@ spec:
+           runAsUser: 0
+       containers:
+       - name: pm-https-server
+-        image: {{ .Values.global.extimagerepo }}/pm-https-server:latest
+-        {{- if .Values.global.extimagerepo }}
+-        imagePullPolicy: Always
+-        {{- else }}
++        image: localhost:5000/pm-https-server:latest
+         imagePullPolicy: Never
+-        {{- end }}
+         ports:
+         - name: http
+           containerPort: 80
+@@ -94,4 +90,4 @@ spec:
+         - name: ne-files-vol
+           mountPath: /ne-files
+         - name: template-files-vol
+-          mountPath: /template-files
+\ No newline at end of file
++          mountPath: /template-files

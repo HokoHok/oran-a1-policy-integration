@@ -1,0 +1,159 @@
+diff --git a/nonrtric/RECIPE_EXAMPLE/example_recipe.yaml b/nonrtric/RECIPE_EXAMPLE/example_recipe.yaml
+index 24f168d..e3fe7f1 100644
+--- a/nonrtric/RECIPE_EXAMPLE/example_recipe.yaml
++++ b/nonrtric/RECIPE_EXAMPLE/example_recipe.yaml
+@@ -24,7 +24,7 @@
+ nonrtric:
+   installPms: true
+   installA1controller: true
+-  installA1simulator: true
++  installA1simulator: false
+   installControlpanel: true
+   installInformationservice: true
+   installRappcatalogueservice: true
+@@ -34,15 +34,15 @@ nonrtric:
+   installDmaapadapterservice: true
+   installDmaapmediatorservice: true
+   installHelmmanager: true
+-  installOrufhrecovery: true
+-  installRansliceassurance: true
++  installOrufhrecovery: false
++  installRansliceassurance: false
+   installCapifcore: true
+   installServicemanager: true
+   installRanpm: false
+   # rApp Manager functionality relies on ACM for its operation
+   installrAppmanager: true
+   # DME Participant should only be activated when ACM installation is available for this participant to utilize
+-  installDmeParticipant: false
++  installDmeParticipant: true
+ 
+   volume1:
+     # Set the size to 0 if you do not need the volume (if you are using Dynamic Volume Provisioning)
+@@ -110,11 +110,11 @@ policymanagementservice:
+       internalPort2: 8433
+       targetPort2: 8433
+     liveness:
+-      initialDelaySeconds: 20
+-      periodSeconds: 10
++      initialDelaySeconds: 600
++      periodSeconds: 30
+     readiness:
+-      initialDelaySeconds: 20
+-      periodSeconds: 10
++      initialDelaySeconds: 300
++      periodSeconds: 20
+     persistence:
+       # Either refer to a volume created under the nonrtric by storageClassName. Then the claimed size should be the same.
+       # The alternative use a dynamic volume provisioner in the cluster. Storage class can then be for instance 'standard' or 'gluster-fs' (depeneds on which classes that are available)
+diff --git a/nonrtric/helm/a1controller/templates/deployment.yaml b/nonrtric/helm/a1controller/templates/deployment.yaml
+index e21ce87..d44d750 100644
+--- a/nonrtric/helm/a1controller/templates/deployment.yaml
++++ b/nonrtric/helm/a1controller/templates/deployment.yaml
+@@ -80,6 +80,13 @@ spec:
+               value: 'a1adapter'
+             - name: AAI_TRUSTSTORE_PASSWORD
+               value: 'changeit'
++          resources:
++            limits:
++              cpu: {{ .Values.a1controller.resources.limits.cpu }}
++              memory: {{ .Values.a1controller.resources.limits.memory }}
++            requests:
++              cpu: {{ .Values.a1controller.resources.requests.cpu }}
++              memory: {{ .Values.a1controller.resources.requests.memory }}
+           readinessProbe:
+             tcpSocket:
+               port: {{ .Values.a1controller.service.targetPort1 }}
+diff --git a/nonrtric/helm/a1controller/values.yaml b/nonrtric/helm/a1controller/values.yaml
+index 6f0410d..e6e4a3c 100644
+--- a/nonrtric/helm/a1controller/values.yaml
++++ b/nonrtric/helm/a1controller/values.yaml
+@@ -33,8 +33,15 @@ a1controller:
+     internalPort2: 8383
+     targetPort2: 8443
+   liveness:
+-    initialDelaySeconds: 60
+-    periodSeconds: 10
++    initialDelaySeconds: 600
++    periodSeconds: 20
+   readiness:
+-    initialDelaySeconds: 60
+-    periodSeconds: 10
++    initialDelaySeconds: 300
++    periodSeconds: 20
++  resources:
++    limits:
++      cpu: "2"
++      memory: "4Gi"
++    requests:
++      cpu: "1"
++      memory: "2Gi"
+diff --git a/nonrtric/helm/policymanagementservice/resources/data/application_configuration.json b/nonrtric/helm/policymanagementservice/resources/data/application_configuration.json
+index 0abd1d5..0d8567b 100644
+--- a/nonrtric/helm/policymanagementservice/resources/data/application_configuration.json
++++ b/nonrtric/helm/policymanagementservice/resources/data/application_configuration.json
+@@ -10,54 +10,10 @@
+     ],
+     "ric": [
+       {
+-        "name": "ric1",
+-        "baseUrl": "https://a1-sim-osc-0.a1-sim:8185",
+-        "controller": "controller1",
+-        "managedElementIds": [
+-          "kista_1",
+-          "kista_2"
+-        ]
+-      },
+-      {
+-        "name": "ric2",
+-        "baseUrl": "https://a1-sim-osc-1.a1-sim:8185",
+-        "controller": "controller1",
+-        "managedElementIds": [
+-          "kista_1",
+-          "kista_2"
+-        ]
+-      },
+-      {
+-        "name": "ric3",
+-        "baseUrl": "https://a1-sim-std-0.a1-sim:8185",
+-        "controller": "controller1",
+-        "managedElementIds": [
+-          "kista_1",
+-          "kista_2"
+-        ]
+-      },
+-      {
+-        "name": "ric4",
+-        "baseUrl": "https://a1-sim-std-1.a1-sim:8185",
+-        "controller": "controller1",
+-        "managedElementIds": [
+-          "kista_1",
+-          "kista_2"
+-        ]
+-      },
+-      {
+-        "name": "ric5",
+-        "baseUrl": "https://a1-sim-std2-0.a1-sim:8185",
+-        "controller": "controller1",
+-        "managedElementIds": [
+-          "kista_1",
+-          "kista_2"
+-        ]
+-      },
+-      {
+-        "name": "ric6",
+-        "baseUrl": "https://a1-sim-std2-1.a1-sim:8185",
++        "name": "a1mediator",
++        "baseUrl": "http://10.110.189.14:10000",
+         "controller": "controller1",
++	"customAdapterClass": "org.onap.ccsdk.oran.a1policymanagementservice.clients. A1MediatorAdapterI",
+         "managedElementIds": [
+           "kista_1",
+           "kista_2"
+@@ -65,4 +21,4 @@
+       }
+     ]
+   }
+-}
+\ No newline at end of file
++}

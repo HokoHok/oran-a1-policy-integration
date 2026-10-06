@@ -1,0 +1,693 @@
+diff --git a/es-rapp/Dockerfile b/es-rapp/Dockerfile
+index 53d518b..62d213c 100644
+--- a/es-rapp/Dockerfile
++++ b/es-rapp/Dockerfile
+@@ -23,5 +23,9 @@ COPY requirements.txt .
+ RUN pip install -r /app/requirements.txt
+ 
+ COPY main.py .
++RUN useradd -m nonroot && chown -R nonroot:nonroot /app
++USER root
++
++RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
+ USER nonroot
+ ENTRYPOINT ["python", "main.py"]
+diff --git a/es-rapp/main.py b/es-rapp/main.py
+index 2fe1f47..b4387bc 100644
+--- a/es-rapp/main.py
++++ b/es-rapp/main.py
+@@ -66,6 +66,7 @@ FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+ logging.basicConfig(format=FORMAT)  # , stream=sys.stdout
+ log.setLevel(logging.INFO)
+ log.info(f'rApp START')
++allow_disabled = [True, False]
+ 
+ class States(Enum):
+     ENABLED = 1
+@@ -84,10 +85,10 @@ class Application:
+         self.source_name = ""
+         self.meas_entity_dist_name = ""
+ 
+-        self.prb_history = []
+-        self.switch_off = False
+-        self.index = 0
+-        self.load_predictor = 'http://' + os.environ['LOAD_PREDICTOR'] + ':' + os.environ['LOAD_PREDICTOR_PORT'] + '/' + os.environ['LOAD_PREDICTOR_API']
++        # self.prb_history = []
++        # self.switch_off = False
++        # self.index = 0
++        # self.load_predictor = 'http://' + os.environ['LOAD_PREDICTOR'] + ':' + os.environ['LOAD_PREDICTOR_PORT'] + '/' + os.environ['LOAD_PREDICTOR_API']
+ 
+         self.a1_url = 'http://' + os.environ['A1T_ADDRESS'] + ':' + os.environ['A1T_PORT']
+         self.ransim_data_path = os.environ['RANSIM_DATA_PATH']
+@@ -97,17 +98,22 @@ class Application:
+         self.sdn_controller_auth = (os.environ['SDN_CONTROLLER_USERNAME'], os.environ['SDN_CONTROLLER_PASSWORD'])
+         
+     def work(self):
+-        policies = self.get_policies()
+-        if policies is None:
+-            log.error('Unable to connect to A1.')
+-            return
++        # policies = self.get_policies()
++        # if policies is None:
++        #     log.error('Unable to connect to A1.')
++        #     return
++
+ 
+-        self.delete_policy()
++        # # legacy judge, need?
++        # # for policy in policies:
++        # #     # assumed that all policies with ID >= 1000 are from this rApp
++        # #     if int(policy) >= 1000:
++        # self.delete_policy()
+ 
+-        self.fetch_cell_urls()
+-        if not self.cell_urls:
++        payload = self.fetch_cell_urls()
++        if payload is None:
+             log.error('Unable to fetch cell URLs')
+-            return
++        #    return
+ 
+         while True:
+             time.sleep(self.sleep_time_sec)
+@@ -116,7 +122,8 @@ class Application:
+             if not data:
+                 log.info('No data')
+                 continue
+-
++            
++            log.info('update_local_data')
+             self.update_local_data(data)
+ 
+             if time.time() >= self.ready_time:
+@@ -140,43 +147,31 @@ class Application:
+ 
+     def update_local_data(self, data):
+         report_type = data['event']['perf3gppFields']['measDataCollection']['measuredEntityDn']
+-        if "Cell" not in report_type:
+-            log.info('Received report is not a Cell report')
+-            return
+-
+         self.source_name = data['event']['commonEventHeader']['sourceName']
+         self.meas_entity_dist_name = report_type
+ 
+-        cells = data['event']['perf3gppFields']['measDataCollection']['measInfoList']
++        cells = data['event']['perf3gppFields']['measDataCollection']['measInfoList'][0]['measValuesList']
+ 
+         if not cells:
+             log.warning("PM report is lacking measurements")
+             return
+ 
+         for index, cell in enumerate(cells):
+-            cId = str(cell['measInfoId']['sMeasInfoId'])
++            cId = str(cell['measObjInstId'].partition("NRCellDU=")[-1])
+ 
+-            p = -1
+-            types_list = cell['measTypes']['sMeasTypesList']
+-            for index_types, pm_type in enumerate(types_list):
+-                if pm_type == 'RRU.PrbTotDl':
+-                    p = index_types
+-                    break
+-
+-            if p == -1:
+-                log.error('PM type RRU.PrbTotDl not present')
+-                return
+-
+-            sValue = cell['measValuesList'][0]['measResults'][p]['sValue']
++            sValue = cell['measResults'][0]['sValue']
+ 
+             if cId not in self.cells:
+                 self.cells[cId] = {
+                     "id": cId,
+-                    "state": States.ENABLED,
++                    "allow_disabled": allow_disabled[index],
++                    "state": States.ENABLED if float(cell['measResults'][0]['sValue']) > 0.0 else States.DISABLED,
+                     "prb_usage": np.nan * np.zeros((self.avg_slots, )),
+                     "avg_prb_usage": np.nan,
+                     "policy_list": []
+                 }
++                if self.cells[cId]['state'] == States.ENABLED:
++                    self.toggle_cell_administrative_state(cId, locked=False)
+ 
+             store = self.cells[cId]
+             store['prb_usage'] = np.roll(store['prb_usage'], 1)
+@@ -190,77 +185,125 @@ class Application:
+             cell = self.cells[key]
+             status += f'{cell["id"]}: {cell["avg_prb_usage"]:.3f}, '
+         status = status[:-2] + "] avg: "
+-        avg_prb = sum(self.cells[cell]["avg_prb_usage"] for cell in self.cells) / sum((self.cells[cell]['state'] != States.DISABLED) for cell in self.cells)
+-        status += f'{avg_prb:.3f}'
+-        # Maintain history of the prb usage. This is used for querying the model.
+-        if not np.isnan(avg_prb):
+-            self.prb_history.append(int(avg_prb))
+-            log.info(f'New Value {(avg_prb)}')
++        try:
++            avg_prb = sum(self.cells[cell]["avg_prb_usage"] for cell in self.cells) / sum((self.cells[cell]['state'] != States.DISABLED) for cell in self.cells)
++        except ZeroDivisionError:
++            log.info("ZeroDivisionError: no prb usage")
+         else:
+-            self.prb_history.append(40)
+-        energy_all = (300 + 4 * 150) / 1e3
+-        energy = (300 + (sum((self.cells[cell]['state'] != States.DISABLED) for cell in self.cells) - 1) * 150) / 1e3
+-        energy_per_day = 24 * energy
+-        energy_save = (energy_all - energy) * 24
+-        status += f' (energy consumption: {energy:.2f}/{energy_all:.2f} W; per day: {energy_per_day:.2f} Wh; per day savings: {energy_save:.2f} Wh)'
+-        log.info(status)
++            status += f'{avg_prb:.3f}'
++            energy_all = (300 + 4 * 150) / 1e3
++            energy = (300 + (sum((self.cells[cell]['state'] != States.DISABLED) for cell in self.cells) - 1) * 150) / 1e3
++            energy_per_day = 24 * energy
++            energy_save = (energy_all - energy) * 24
++            status += f' (energy consumption: {energy:.2f}/{energy_all:.2f} W; per day: {energy_per_day:.2f} Wh; per day savings: {energy_save:.2f} Wh)'
++            log.info(status)
+ 
+     def make_decision(self) :
+-        if len(self.prb_history) < 10:
+-            log.error("Insufficient data to make a prediction")
++        data = []
++        for i, key in enumerate(self.cells.keys()):
++            record = [None] * 3
++            record[0] = self.cells[key]['id']
++            record[1] = self.cells[key]['avg_prb_usage']
++            record[2] = self.cells[key]['state']
++            data.append(record)
++
++        if any(np.nan in record for record in data):
+             return
+ 
+-        headers = {'Content-Type': 'application/json', 'Accept':'application/json'}
+-        l1 = self.prb_history[:]
+-        l1.append(self.index%144)
+-        self.index = self.index + 1
+-        l1.append(0)
+-        l = json.dumps(l1)
+-        rsp = requests.post(self.load_predictor, headers= headers, json=l)
+-        r1 = rsp.json()
+-        log.info(f'Query - {l1}')
+-        prd = 0
+-        i = 0
+-        self.prb_history = self.prb_history[5:]
+-        # Convert the prediction from string to int
+-        while True: 
+-            if r1[0][i] == " " or r1[0][i] == "." :
+-                break
+-            prd = prd*10 + int(r1[0][i])
+-            i = i+1
+-
+-        log.info(f'Predicted load - {prd}')
+-        # Hardcoding the cell-id here.
+-        cell_id = "1454c001"
+-        if prd < 80 and self.switch_off == False:
+-            #Switch off capacity cell
+-            self.cells[cell_id]['state'] = States.DISABLING
+-            self.send_command_disable_cell(cell_id)
+-            self.switch_off = True
+-        elif prd > 80 and self.switch_off == True:
+-            #Switch On capacity cell
+-            self.cells[cell_id]['state'] = States.ENABLED
+-            self.toggle_cell_administrative_state(cell_id, locked=False)
+-            self.send_command_enable_cell(cell_id)
+-            self.switch_off = False
++        total_prb_usage = sum(record[1] for record in data)
++        enabled_cells = sum((record[2] != States.DISABLED) for record in data)
++        disabling_cell = sum((record[2] == States.DISABLING) for record in data)
++
++        log.info(f'Checking if a cell should be switched off')
++        for record in data:
++            if record[2] == States.DISABLING:
++                cell_id = record[0]
++                self.toggle_cell_administrative_state(cell_id, locked=True)
++                self.cells[cell_id]['state'] = States.DISABLED
++                enabled_cells-=1
++
++        current_avg_prb_usage = total_prb_usage / enabled_cells
++
++        log.info(f'Making decision...')
++        log.info(f'Current average PRB usage: {current_avg_prb_usage}')
++        if (max(record[1] for record in data) > 40) and (current_avg_prb_usage > 30):
++            log.info('Max and average PRB usage above thresholds - trying to enable one cell.')
++            self.enable_one_cell()
++        elif (current_avg_prb_usage < 20) and (disabling_cell == 0):
++            log.info('Average PRB usage below threshold - trying to disable one cell.')
++            future_avg_prb_usage = total_prb_usage / (enabled_cells - 1)
++            log.info(f'Expected PRB usage {future_avg_prb_usage}.')
++            self.disable_one_cell()
++        else:
++            log.info('Make cell on/off decision - no action - balance achieved.')
+ 
+     def toggle_cell_administrative_state(self, cell_id, locked):
++        # cell_id is 9 hex digits
++        string_cell_id = '{}'.format(cell_id)
++        while len(string_cell_id) < 9:
++            string_cell_id = '0' + string_cell_id
++        full_cell_id = '138426{}'.format(string_cell_id)
++        # full_cell_id = '{}'.format(cell_id)
+         sOff='off' if locked else 'on'
+-        log.info(f'Switching {sOff} cell {cell_id}')
+-        path_base = '/O1/CM/'
+-        path_tail = self.cell_urls[cell_id]
+-        url = 'http://' + self.sdn_controller_address + ':' + self.sdn_controller_port + path_base + path_tail
+-        payload = { "attributes": {"administrativeState": "LOCKED" if locked else "UNLOCKED"} }
+-        response = requests.put(url, auth=self.sdn_controller_auth, json=payload)
++        log.info(f'Switching {sOff} cell {full_cell_id}')
++        path_base = '/rests/data/network-topology:network-topology/topology=topology-netconf'
++        path_tail = '/node={node}/yang-ext:mount/o-ran-sc-du-hello-world:network-function/distributed-unit-functions={duf}/cell={cell}/administrative-state'
++        url = 'http://' + self.sdn_controller_address + ':' + self.sdn_controller_port + path_base + path_tail.format(node=self.source_name, duf=self.meas_entity_dist_name, cell=full_cell_id)
++        log.info(f'{url}')
++        headers = {
++            'Accept': 'application/yang-data+json',
++            'Content-Type': 'application/yang-data+json'
++        }
++        payload = {"administrative-state": "locked" if locked else "unlocked"}
++        response = requests.put(url, verify=False, auth=self.sdn_controller_auth, json=payload, headers=headers)
+         log.info(f'Cell-{sOff} response status:{response.status_code}')
+ 
+-    
++    def enable_one_cell(self):
++        options = []
++        for key in self.cells.keys():
++            option = [None] * 3
++            option[0] = self.cells[key]['id']
++            option[1] = self.cells[key]['avg_prb_usage']
++            option[2] = (self.cells[key]['state'] == States.DISABLED) and self.cells[key]['allow_disabled']
++            options.append(option)
++
++        options_filtered = [option for option in options if option[2] == True]
++        if len(options_filtered) == 0:
++            log.info('There are no cells that could be enabled...')
++            return
++
++        cell_id = random.choice(options)[0]
++        self.cells[cell_id]['state'] = States.ENABLED
++        log.info(f'enable cell with cell_id {cell_id}')
++        self.toggle_cell_administrative_state(cell_id, locked=False)
++        # self.send_command_enable_cell(cell_id)
++
+     def send_command_enable_cell(self, cell_id):
+         log.info(f'Enabling cell with id {cell_id}')
+-        self.delete_policy()
++        for policy in self.cells[cell_id]['policy_list']:
++            self.delete_policy(str(policy))
+         self.cells[cell_id]['policy_list'] = []
+ 
+-    
++    def disable_one_cell(self):
++        options = []
++        for key in self.cells.keys():
++            option = [None] * 3
++            option[0] = self.cells[key]['id']
++            option[1] = self.cells[key]['avg_prb_usage']
++            option[2] = (self.cells[key]['state'] == States.ENABLED) and self.cells[key]['allow_disabled']
++            options.append(option)
++
++        options_filtered = [option for option in options if option[2] == True]
++        if len(options_filtered) == 0:
++            log.info('There are no cells that could be disabled...')
++            return
++
++        ind = sorted(options_filtered, key=itemgetter(1))[0]
++        cell_id = ind[0]
++        self.cells[cell_id]['state'] = States.DISABLING
++        log.info(f'disable cell with cell_id {cell_id}')
++        # self.send_command_disable_cell(cell_id)
++
+     def send_command_disable_cell(self, cell_id):
+         log.info(f'Disabling cell with id {cell_id}')
+         current_policies = self.get_policies()
+@@ -307,29 +350,25 @@ class Application:
+             return None
+ 
+     def fetch_cell_urls(self):
+-        ## TBUpdated: fetch managedelement id instead of hardcoded value
+-        path_base = '/O1/CM/ManagedElement=1193046'
++        path_base = '/rests/data/network-topology:network-topology/topology=topology-netconf'
+         url = 'http://' + self.sdn_controller_address + ':' + self.sdn_controller_port + path_base
+-        try:
+-            response = requests.get(url, auth=self.sdn_controller_auth).json()
+-            gnb_du_function = response['GnbDuFunction']
+-
+-            for data in gnb_du_function:
+-                for cell_du in data['NrCellDu']:
+-                    cell_name = cell_du['viavi-attributes']['cellName']
+-                    url = cell_du['objectInstance']
+-                    self.cell_urls[cell_name] = url
++        headers = {
++            'Accept': 'application/yang-data+json',
++            'Content-Type': 'application/yang-data+json'
++        }
+ 
++        try:
++            response = requests.get(url, auth=self.sdn_controller_auth, headers=headers)
++            log.info(response)
+             return response
+         except Exception as ex:
+             log.error(ex)
+             return None
+ 
+-
+ if __name__ == '__main__':
+     app = Application(
+-        sleep_time_sec=10.0,
+-        sleep_after_decision_sec=120.0,
+-        avg_slots=5
++        sleep_time_sec=1.0,
++        sleep_after_decision_sec=10.0,
++        avg_slots=10
+     )
+     app.work()
+diff --git a/install/helm/nrt-base-1/charts/strimzi-kafka/templates/app-kafka.yaml b/install/helm/nrt-base-1/charts/strimzi-kafka/templates/app-kafka.yaml
+index 4e15bfe..af9a44c 100644
+--- a/install/helm/nrt-base-1/charts/strimzi-kafka/templates/app-kafka.yaml
++++ b/install/helm/nrt-base-1/charts/strimzi-kafka/templates/app-kafka.yaml
+@@ -22,7 +22,7 @@ metadata:
+   namespace: nonrtric
+ spec:
+   kafka:
+-    version: 3.5.0
++    version: 3.7.0
+     replicas: 1
+     listeners:
+       - name: plain
+diff --git a/install/helm/nrt-base-1/charts/ves-mr/config/collector.properties b/install/helm/nrt-base-1/charts/ves-mr/config/collector.properties
+index 82caac5..3689788 100644
+--- a/install/helm/nrt-base-1/charts/ves-mr/config/collector.properties
++++ b/install/helm/nrt-base-1/charts/ves-mr/config/collector.properties
+@@ -26,8 +26,8 @@ collector.service.secure.port=8443
+ #
+ # noAuth - default option - no security (http)
+ # certBasicAuth - auth by certificate and basic auth username / password (https)
+-#auth.method=certBasicAuth
+-auth.method=noAuth
++auth.method=certBasicAuth
++#auth.method=noAuth #origin
+ 
+ ## Combination of userid,hashPassword encoded pwd list to be supported
+ ## userid and pwd comma separated; pipe delimitation between each pair
+diff --git a/install/helm/nrt-pm/charts/ics/templates/app-configmap.yaml b/install/helm/nrt-pm/charts/ics/templates/app-configmap.yaml
+index 7437ca0..5aff078 100644
+--- a/install/helm/nrt-pm/charts/ics/templates/app-configmap.yaml
++++ b/install/helm/nrt-pm/charts/ics/templates/app-configmap.yaml
+@@ -18,7 +18,7 @@
+ apiVersion: v1
+ kind: ConfigMap
+ metadata:
+-  name: informationservice-cm-config
++  name: informationservice-ranpm-cm-config
+   namespace: nonrtric
+ 
+ data:
+diff --git a/install/helm/nrt-pm/charts/ics/templates/app-deployment.yaml b/install/helm/nrt-pm/charts/ics/templates/app-deployment.yaml
+index 269bbcf..37e63ca 100644
+--- a/install/helm/nrt-pm/charts/ics/templates/app-deployment.yaml
++++ b/install/helm/nrt-pm/charts/ics/templates/app-deployment.yaml
+@@ -18,22 +18,22 @@
+ apiVersion: apps/v1
+ kind: Deployment
+ metadata:
+-  name: informationservice
++  name: informationservice-ranpm
+   namespace: nonrtric
+   labels:
+-    app: informationservice
++    app: informationservice-ranpm
+ spec:
+   replicas: 1
+   selector:
+     matchLabels:
+-      app: informationservice
++      app: informationservice-ranpm
+   template:
+     metadata:
+       labels:
+-        app: informationservice
++        app: informationservice-ranpm
+     spec:
+       containers:
+-      - name: informationservice
++      - name: informationservice-ranpm
+         image: nexus3.o-ran-sc.org:10001/o-ran-sc/nonrtric-plt-informationcoordinatorservice:1.5.0
+         imagePullPolicy: Always
+         ports:
+@@ -44,9 +44,9 @@ spec:
+         volumeMounts:
+         - mountPath: /opt/app/information-coordinator-service/config/application.yaml
+           subPath: application.yaml
+-          name: informationservice-cm-config
++          name: informationservice-ranpm-cm-config
+       volumes:
+       - configMap:
+           defaultMode: 420
+-          name: informationservice-cm-config
+-        name: informationservice-cm-config
+\ No newline at end of file
++          name: informationservice-ranpm-cm-config
++        name: informationservice-ranpm-cm-config
+\ No newline at end of file
+diff --git a/install/helm/nrt-pm/charts/ics/templates/app-ra-ap.yaml b/install/helm/nrt-pm/charts/ics/templates/app-ra-ap.yaml
+index 23c0690..5845f91 100644
+--- a/install/helm/nrt-pm/charts/ics/templates/app-ra-ap.yaml
++++ b/install/helm/nrt-pm/charts/ics/templates/app-ra-ap.yaml
+@@ -22,7 +22,7 @@ metadata:
+ spec:
+   selector:
+     matchLabels:
+-      app: informationservice
++      app: informationservice-ranpm
+   jwtRules:
+   - issuer: "http://keycloak.nonrtric:8080/realms/nonrtric-realm"
+     jwksUri: "http://keycloak.nonrtric:8080/realms/nonrtric-realm/protocol/openid-connect/certs"
+@@ -38,7 +38,7 @@ metadata:
+ spec:
+   selector:
+     matchLabels:
+-      app: informationservice
++      app: informationservice-ranpm
+   rules:
+   - from:
+     - source:
+diff --git a/install/helm/nrt-pm/charts/ics/templates/app-service.yaml b/install/helm/nrt-pm/charts/ics/templates/app-service.yaml
+index b96c9e3..c9339dc 100644
+--- a/install/helm/nrt-pm/charts/ics/templates/app-service.yaml
++++ b/install/helm/nrt-pm/charts/ics/templates/app-service.yaml
+@@ -18,10 +18,10 @@
+ apiVersion: v1
+ kind: Service
+ metadata:
+-  name: informationservice
++  name: informationservice-ranpm
+   namespace: nonrtric
+   labels:
+-    app: informationservice
++    app: informationservice-ranpm
+ spec:
+   type: NodePort
+   ports:
+@@ -36,4 +36,4 @@ spec:
+     name: https
+     nodePort: 31824
+   selector:
+-    app: informationservice
+\ No newline at end of file
++    app: informationservice-ranpm
+\ No newline at end of file
+diff --git a/install/helm/nrt-rapps/templates/app-pod.yaml b/install/helm/nrt-rapps/templates/app-pod.yaml
+index c5614df..e09cc7b 100644
+--- a/install/helm/nrt-rapps/templates/app-pod.yaml
++++ b/install/helm/nrt-rapps/templates/app-pod.yaml
+@@ -44,9 +44,9 @@ spec:
+         fieldRef:
+           fieldPath: metadata.namespace
+     - name: KAFKA_SERVER
+-      value: kafka-1-kafka-bootstrap.nonrtric:9097
++      value: 10.101.147.82:9097
+     - name: ICS
+-      value: informationservice.nonrtric:8083
++      value: 10.105.3.149:8083
+     - name: TOPIC
+       value: rapp-topic
+     # Set value to any string to log payload
+@@ -76,19 +76,21 @@ spec:
+     {{- else }}
+     imagePullPolicy: Never
+     {{- end }}
++    securityContext:
++      runAsUser: 1000
+     env:
+     - name: SDN_CONTROLLER_ADDRESS
+-      value: "172.17.0.1"
++      value: "10.244.0.102"
+     - name: SDN_CONTROLLER_PORT
+-      value: "80"
++      value: "8181"
+     - name: SDN_CONTROLLER_USERNAME
+-      value: "root"
++      value: "admin"
+     - name: SDN_CONTROLLER_PASSWORD
+-      value: "viavi"
++      value: "Kp8bJ4SXszM0WXlhak3eHlcse2gAw84vaoGGmJvUy2U"
+     - name: A1T_ADDRESS
+-      value: "172.17.0.1"
++      value: "10.244.0.15"
+     - name: A1T_PORT
+-      value: "80"
++      value: "10000"
+     - name: LOAD_PREDICTOR
+       value: "dummy"
+     - name: LOAD_PREDICTOR_PORT
+diff --git a/install/helm/ran-o1-sim/templates/app-pod.yaml b/install/helm/ran-o1-sim/templates/app-pod.yaml
+index 9df438f..6f0747d 100644
+--- a/install/helm/ran-o1-sim/templates/app-pod.yaml
++++ b/install/helm/ran-o1-sim/templates/app-pod.yaml
+@@ -35,7 +35,7 @@ spec:
+       name: ntsim-odu-hello-world-operational-xml
+   containers:
+   - name: nts-ng-o-ran-du
+-    image: {{ .Values.global.extimagerepo }}nts-ng-o-ran-du:1.8.1
++    image: {{ .Values.global.extimagerepo }}nts-ng-o-ran-du:latest
+     {{- if .Values.global.extimagerepo }}
+     imagePullPolicy: Always
+     {{- else }}
+@@ -45,15 +45,15 @@ spec:
+     - name: IPv6_ENABLED
+       value: "false"
+     - name: SSH_CONNECTIONS
+-      value: "1"
+-    - name: TLS_CONNECTIONS
+       value: "0"
++    - name: TLS_CONNECTIONS
++      value: "1"
+     - name: NTS_NF_MOUNT_POINT_ADDRESSING_METHOD
+       value: "docker-mapping"
+     - name: SDN_CONTROLLER_PROTOCOL
+       value: "http"
+     - name: SDN_CONTROLLER_IP
+-      value: "controller.nonrtric"
++      value: "10.110.130.89"
+     - name: SDN_CONTROLLER_PORT
+       value: "8181"
+     - name: SDN_CONTROLLER_CALLHOME_IP
+@@ -67,17 +67,13 @@ spec:
+     - name: VES_COMMON_HEADER_VERSION
+       value: 7.2.1
+     - name: VES_ENDPOINT_PROTOCOL
+-      value: http
++      value: "http"
+     - name: VES_ENDPOINT_IP
+-      value: ves-collector.nonrtric
++      value: "ves-collector.nonrtric"
+     - name: VES_ENDPOINT_PORT
+       value: "8080"
+     - name: VES_ENDPOINT_AUTH_METHOD
+       value: "basic-auth"
+-    - name: VES_PM_DATA_SERVER_URL
+-      value: https://pm-https-server-0.pm-https-server.ran:443/scenario
+-    - name: VES_PM_DATA_FILE_NAME_PATTERN
+-      value: O-DU-1211
+     - name: CURL_CONNECT_TIMEOUT
+       value: "1"
+     - name: CURL_OPERATION_TIMEOUT
+diff --git a/install/install-o1-sim.sh b/install/install-o1-sim.sh
+index aee1d0c..2812599 100755
+--- a/install/install-o1-sim.sh
++++ b/install/install-o1-sim.sh
+@@ -43,7 +43,7 @@ if [ $? -ne 0 ]; then
+ fi
+ 
+ echo " helm install..."
+-helm install --wait -f helm/global-values.yaml -n ran ran-o1-sim-du helm/ran-o1-sim
++helm install --wait --timeout 20m -f helm/global-values.yaml -n ran ran-o1-sim-du helm/ran-o1-sim
+ 
+ echo "done"
+ 
+diff --git a/install/scripts/create_ics_job.sh b/install/scripts/create_ics_job.sh
+index 7e0e95c..d557585 100755
+--- a/install/scripts/create_ics_job.sh
++++ b/install/scripts/create_ics_job.sh
+@@ -21,7 +21,9 @@
+ # job file shall exist in file "".job.json"
+ create_ics_job() {
+ 
+-    ICS_PROXY_PORT=$(kubectl get svc -n nonrtric informationservice --output jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
++    $KUBERNETESHOST=10.105.3.149
++    ICS_PROXY_PORT=8083
++    echo "IP is: "$KUBERNETESHOST
+     echo "NodePort to ics: "$ICS_PROXY_PORT
+     JOB=$(<.job.json)
+     echo $JOB
+@@ -49,4 +51,4 @@ create_ics_job() {
+         fi
+         sleep 1
+     done
+-}
+\ No newline at end of file
++}
+diff --git a/install/scripts/kafka-client-send-genfiles-file-ready.sh b/install/scripts/kafka-client-send-genfiles-file-ready.sh
+index 61c5297..d8cea49 100755
+--- a/install/scripts/kafka-client-send-genfiles-file-ready.sh
++++ b/install/scripts/kafka-client-send-genfiles-file-ready.sh
+@@ -69,8 +69,8 @@ fi
+ PUSHMSG=""
+ if [ $VARIANT == "ves" ]; then
+     PUSHMSG="to ves-collector"
+-elif [ $VARIANT == "file-ready" ]; then
+-    PUSHMSG="to file-ready topic"
++elif [ $VARIANT == "rapp-topic" ]; then
++    PUSHMSG="to rapp-topic topic"
+ fi
+ 
+ # Unix time of 20230515.0700
+@@ -191,9 +191,9 @@ for (( i=0; i<$EVT_COUNT; i++)); do
+             echo "Pushing batch of $CNTR events $PUSHMSG"
+             if [ $VARIANT == "ves" ]; then
+                 echo ']}' >> .out.json
+-                curl -s -X POST http://ves-collector.nonrtric:8080/eventListener/v7/eventBatch --header 'Content-Type: application/json' --data-binary @.out.json
++                curl -s -X POST http://10.108.156.181:8080/eventListener/v7/eventBatch --header 'Content-Type: application/json' --data-binary @.out.json
+             else
+-                cat .out.json | kafka-console-producer --topic file-ready --broker-list kafka-1-kafka-bootstrap.nonrtric:9092
++                cat .out.json | kafka-console-producer --topic rapp-topic --broker-list kafka-1-kafka-bootstrap.nonrtric:9092
+             fi
+             rm .out.json
+             touch .out.json
+@@ -208,9 +208,9 @@ if [ $CNTR -ne 0 ]; then
+     echo "Pushing batch of $CNTR events $PUSHMSG"
+     if [ $VARIANT == "ves" ]; then
+         echo ']}' >> .out.json
+-        curl -s -X POST http://ves-collector.nonrtric:8080/eventListener/v7/eventBatch --header 'Content-Type: application/json' --data-binary @.out.json
++        curl -s -X POST http://10.108.156.181:8080/eventListener/v7/eventBatch --header 'Content-Type: application/json' --data-binary @.out.json
+     else
+-        cat .out.json | kafka-console-producer --topic file-ready --broker-list kafka-1-kafka-bootstrap.nonrtric:9092
++        cat .out.json | kafka-console-producer --topic rapp-topic --broker-list kafka-1-kafka-bootstrap.nonrtric:9092
+     fi
+ fi
+ 
+diff --git a/install/scripts/push-genfiles-to-file-ready-topic.sh b/install/scripts/push-genfiles-to-file-ready-topic.sh
+index 1d5b7cc..bf1b03c 100755
+--- a/install/scripts/push-genfiles-to-file-ready-topic.sh
++++ b/install/scripts/push-genfiles-to-file-ready-topic.sh
+@@ -69,7 +69,7 @@ fi
+ chmod +x kafka-client-send-genfiles-file-ready.sh
+ kubectl cp kafka-client-send-genfiles-file-ready.sh nonrtric/kafka-client:/home/appuser
+ 
+-kubectl exec kafka-client -n nonrtric -- bash -c './kafka-client-send-genfiles-file-ready.sh file-ready '$NODE_COUNT' '$EVT_COUNT' '$NODE_NAME_BASE' '$FILE_EXT' '$TYPE' '$SRV_COUNT' '$HIST
++kubectl exec kafka-client -n nonrtric -- bash -c './kafka-client-send-genfiles-file-ready.sh rapp-topic '$NODE_COUNT' '$EVT_COUNT' '$NODE_NAME_BASE' '$FILE_EXT' '$TYPE' '$SRV_COUNT' '$HIST
+ 
+ echo done
+ 
+diff --git a/pm-rapp/Dockerfile b/pm-rapp/Dockerfile
+index 1869c36..2a4310a 100644
+--- a/pm-rapp/Dockerfile
++++ b/pm-rapp/Dockerfile
+@@ -25,10 +25,12 @@ RUN go mod tidy
+ 
+ RUN go build -o /pm-rapp
+ 
+-FROM gcr.io/distroless/base-debian11
++FROM debian:buster-slim
+ 
+ WORKDIR /
+ ## Copy from "build" stage
+ COPY --from=build /pm-rapp .
+ 
++RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
++
+ ENTRYPOINT ["/pm-rapp"]

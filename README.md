@@ -22,6 +22,7 @@ flowchart LR
 
 | Path | Contents |
 | --- | --- |
+| [`changes/`](changes/) | Five patches preserving 76 local changes across the upstream working trees, with scope and exclusions explained in the [change guide](changes/README.md). |
 | [`historical-scripts/`](historical-scripts/) | Local J-release installation helpers and kubeadm configuration copied from the VM. These are archival scripts with destructive setup steps. |
 | [`examples/`](examples/) | Small, sanitized A1/PMS configuration examples derived from the VM and notes. They are documentation excerpts, not a complete Helm recipe. |
 | [`evidence/`](evidence/) | Selected screenshots from the original HackMD notes, with version and limitations explained in [evidence notes](docs/evidence.md). |
@@ -37,4 +38,4 @@ The local VM used Ubuntu 22.04-era packages, Kubernetes `1.28.1`, Docker `20.10.
 
 ## Attribution
 
-The RIC, Non-RT RIC, and RAN PM platforms are upstream projects. This repository selects local scripts, configuration changes, and experiment evidence; it does not claim authorship of upstream platform code. See [provenance](docs/provenance.md) for links and commit IDs.
+The RIC, Non-RT RIC, and RAN PM platforms are upstream projects. This repository preserves local working-tree changes, scripts, configuration examples, and experiment evidence; it does not claim authorship of upstream platform code. See [provenance](docs/provenance.md) for links and commit IDs.

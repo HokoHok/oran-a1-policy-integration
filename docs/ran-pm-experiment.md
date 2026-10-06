@@ -9,3 +9,5 @@ The VM contains two distinct upstream checkouts: O-RAN SC `nonrtric-plt-ranpm` u
 - Local container-image and O1 simulator settings, plus changes to the `es-rapp` Python program and Helm templates.
 
 The [RAN PM/rApp notes](https://hackmd.io/@_Rheq0BSRpaANOaleSyL2Q/HkeIBWmvC) record installation and troubleshooting steps and explicitly mark the PM connection procedure as deferred. Generated certificates, private keys, tokens, and environment-specific Helm values remain in the VM archive and are not part of this portfolio repository.
+
+The preserved [RAN PM patch](../changes/ranpm.patch) and [experimental rApp/O1 patch](../changes/smart5g-ranpm-experimental.patch) show the local code and configuration differences. They are snapshots of the VM's working trees. The changed `es-rapp/main.py` includes new cell selection and administrative-state requests, but those paths were not retested during this cleanup and should not be presented as a verified complete pipeline.
