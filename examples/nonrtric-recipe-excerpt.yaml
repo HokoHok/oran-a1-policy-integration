@@ -1,0 +1,27 @@
+# Selected values from the VM's local J-release recipe.
+# This excerpt is documentation, not a complete deployable Helm recipe.
+nonrtric:
+  installPms: true
+  installA1controller: true
+  installA1simulator: false
+  installOrufhrecovery: false
+  installRansliceassurance: false
+  installRanpm: false
+  installDmeParticipant: true
+
+policymanagementservice:
+  liveness:
+    initialDelaySeconds: 600
+    periodSeconds: 30
+  readiness:
+    initialDelaySeconds: 300
+    periodSeconds: 20
+
+a1controller:
+  resources:
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+    requests:
+      cpu: "1"
+      memory: "2Gi"

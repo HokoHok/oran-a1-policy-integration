@@ -1,0 +1,27 @@
+# VM images, generated archives, and runtime data
+*.ova
+*.vdi
+*.vmdk
+*.qcow2
+*.tar
+*.tar.gz
+*.log
+__pycache__/
+.pytest_cache/
+
+# Credentials and generated certificates
+.env
+.env.*
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.pem
+*.crt
+*kubeconfig*
+
+# Local working files
+.DS_Store
+Thumbs.db
+tmp/

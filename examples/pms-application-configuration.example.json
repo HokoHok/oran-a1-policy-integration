@@ -1,0 +1,21 @@
+{
+  "config": {
+    "controller": [
+      {
+        "name": "controller1",
+        "baseUrl": "https://a1controller:8383",
+        "userName": "REPLACE_WITH_CONTROLLER_USER",
+        "password": "REPLACE_WITH_CONTROLLER_PASSWORD"
+      }
+    ],
+    "ric": [
+      {
+        "name": "a1mediator",
+        "baseUrl": "http://A1_MEDIATOR_HOST:10000",
+        "controller": "controller1",
+        "customAdapterClass": "org.onap.ccsdk.oran.a1policymanagementservice.clients.A1MediatorAdapterI",
+        "managedElementIds": ["kista_1", "kista_2"]
+      }
+    ]
+  }
+}
