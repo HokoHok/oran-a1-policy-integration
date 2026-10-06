@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://highstreet-technologies.com/network-generator/configuration.schema.json",
+  "title": "Configuration",
+  "description": "This schema validates the initial configuration for the network generator application.",
+  "type": "object",
+  "required": [
+    "network",
+    "outputFolder",
+    "generationTasks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "network": {
+      "description": "Defines the network and its topology to be generated.",
+      "$ref": "#/$defs/network"
+    },
+    "outputFolder": {
+      "description": "The relative path (folder name only) of the directory, where the generated files are stored.",
+      "type": "string"
+    },
+    "generationTasks": {
+      "description": "Defines the files to be generated.",
+      "$ref": "#/$defs/generationTasks"
+    }
+  },
+  "$defs": {
+    "network": {
+      "title": "network",
+      "type": "object",
+      "required": [
+        "name",
+        "center",
+        "pattern"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "The name as identification for humans. For the pattern explanation, please see: https://regex101.com/r/3ER25H/1",
+          "type": "string",
+          "pattern": "^[a-zA-Z]{1}[\\S]{0,254}$"
+        },
+        "center": {
+          "description": "Defines the geographical center of the Radio Access Network.",
+          "$ref": "#/$defs/geoLocation"
+        },
+        "pattern": {
+          "description": "A description of the relations between O-RAN Objects.",
+          "$ref": "#/$defs/pattern"
+        }
+      }
+    },
+    "geoLocation": {
+      "description": "Describes a geographical location.",
+      "title": "geoLocation",
+      "type": "object",
+      "required": [
+        "latitude",
+        "longitude",
+        "aboveMeanSeaLevel"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "latitude": {
+          "description": "The latitude of the geographical location in decimal degrees. Please note 0.00001° is about 1.11m.",
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "description": "The longitude of the geographical location in decimal degrees. Please note 0.00001° is about 1.11m.",
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "aboveMeanSeaLevel": {
+          "description": "The height of the geographical location in meters.",
+          "type": "number",
+          "minimum": -20,
+          "maximum": 1000
+        }
+      }
+    },
+    "pattern": {
+      "description": "A description of the relations between O-RAN Objects.",
+      "title": "pattern",
+      "type": "object",
+      "required": [
+        "tower",
+        "smo",
+        "nearRtRic",
+        "oRanCu",
+        "oRanDu",
+        "oRanRu",
+        "nrCellDu"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tower": {
+          "description": "A 'tower' offers mounting positions of O-RUs.",
+          "title": "tower",
+          "type": "object",
+          "required": [
+            "representation"
+          ],
+          "properties": {
+            "representation": {
+              "description": "A fixed value for information only.",
+              "type": "string",
+              "enum": [
+                "hexagon"
+              ]
+            }
+          }
+        },
+        "smo": {
+          "description": "Definition of the relation to SMO children.",
+          "title": "Service Management and Orchestration",
+          "type": "object",
+          "required": [
+            "fiveGCoreCount",
+            "nearRtRicSpiralRadius",
+            "oCloudResourcePoolCount"
+          ],
+          "properties": {
+            "fiveGCoreCount": {
+              "description": "The number of 5G-Cores controlled by SMO.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "nearRtRicSpiralRadius": {
+              "description": "The spiral radius of hexagons within an hexagon grid defines the number of nearRtRics and the geographical coverage of the SMO.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "oCloudResourcePoolCount": {
+              "description": "Number of O-RAN O-Cloud resource pools managed by O2-controller of the SMO.",
+              "type": "integer",
+              "enum": [
+                1,
+                7,
+                19,
+                37
+              ]
+            }
+          }
+        },
+        "nearRtRic": {
+          "description": "Definition of the relation to nearRtRic children.",
+          "title": "nearRtRic",
+          "type": "object",
+          "required": [
+            "oRanCuSpiralRadius"
+          ],
+          "properties": {
+            "oRanCuSpiralRadius": {
+              "description": "The spiral radius of hexagons within a hexagon grid defines the number of O-RAN CUs and the geographical coverage of the SMO.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
+          }
+        },
+        "oRanCu": {
+          "description": "Definition of the relation to oRanCu children.",
+          "title": "oRanCu",
+          "type": "object",
+          "required": [
+            "oRanDuSpiralRadius"
+          ],
+          "properties": {
+            "oRanDuSpiralRadius": {
+              "description": "The spiral radius of hexagons within a hexagon grid defines the number of O-RAN DUs and the geographical coverage of the SMO.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
+          }
+        },
+        "oRanDu": {
+          "description": "Definition of the relation to oRanDU children.",
+          "title": "oRanDu",
+          "type": "object",
+          "required": [
+            "towerSpiralRadius",
+            "fronthaulGatewayCount",
+            "oRanRuCount"
+          ],
+          "properties": {
+            "towerSpiralRadius": {
+              "description": "The spiral radius of hexagons within an hexagon grid defines the number of towers and the geographical coverage of the oRanDU. This means that center tower offers the O-Cloud resource pool for the surrounding towers and its oRanRus.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "fronthaulGatewayCount": {
+              "description": "Number of fronthaul gateway connected to an oRanDU.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "oRanRuCount": {
+              "description": "Number of oRanRus managed by an oRanDU.",
+              "type": "integer",
+              "enum": [
+                1,
+                7,
+                19,
+                37
+              ]
+            }
+          }
+        },
+        "oRanRu": {
+          "description": "Definition of the relation to oRanRu children.",
+          "title": "oRanRu",
+          "type": "object",
+          "required": [
+            "nrCellDuCount"
+          ],
+          "properties": {
+            "nrCellDuCount": {
+              "description": "Number of 3GPP:NRCellDUs managed by an oRanRu.",
+              "type": "integer",
+              "enum": [
+                1,
+                3
+              ]
+            }
+          }
+        },
+        "nrCellDu": {
+          "description": "Definition of the relation to 3GPP:NRCellDU children.",
+          "title": "nrCellDu",
+          "type": "object",
+          "required": [
+            "sectorCount",
+            "cellAngle",
+            "cellScaleFactorForHandoverArea",
+            "maxReach"
+          ],
+          "properties": {
+            "sectorCount": {
+              "description": "Number of sectors managed by an 3GPP:NRCellDUs.",
+              "type": "integer",
+              "enum": [
+                1,
+                3
+              ]
+            },
+            "cellAngle": {
+              "description": "The area covered by an NRCellDU around the tower in grad.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 360,
+              "exclusiveMinimum": 0
+            },
+            "cellScaleFactorForHandoverArea": {
+              "description": "A factor to increase the cell polygon for handover areas in procent [%]",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50
+            },
+            "maxReach": {
+              "description": "The maximal distance a UE can reach the cell in meters. The value also defines the radius around a tower where UEs may select a NRCellDU of an oRanRu mounted at this tower.",
+              "type": "integer",
+              "minimum": 15,
+              "maximum": 600
+            }
+          }
+        }
+      }
+    },
+    "export": {
+      "title": "export",
+      "type": "object",
+      "required": [
+        "enabled",
+        "compressed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "description": "If true, an export file is created.",
+          "type": "boolean"
+        },
+        "compressed": {
+          "description": "If true, the export file is stored in a compressed format.",
+          "type": "boolean"
+        }
+      }
+    },
+    "generationTasks": {
+      "title": "generationTasks",
+      "type": "object",
+      "required": [
+        "topology",
+        "svg",
+        "kml"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "topology": {
+          "description": "If enabled, an ietf-network-topology file will be generated.",
+          "$ref": "#/$defs/export"
+        },
+        "network_dir": {
+          "description": "If enabled, an ietf-network-topology network subdirectory file structure is generated.",
+          "$ref": "#/$defs/export"
+        },
+        "svg": {
+          "description": "If enabled, a svg file will be generated.",
+          "$ref": "#/$defs/export"
+        },
+        "kml": {
+          "description": "If enabled, a kml file will be generated.",
+          "$ref": "#/$defs/export"
+        }
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 This repository documents a historical O-RAN Software Community integration lab. The main experiment connected the J-release Non-RT RIC Policy Management Service (PMS) to the Near-RT RIC A1 Mediator. Earlier F-release policy and Traffic Steering work, plus a later RAN PM/rApp experiment, are recorded separately.
 
-The repository is a **portfolio record of the 2023–2024 work**, not a maintained deployment package. The original VirtualBox machine remains the archive. The stack was not redeployed or functionally tested during this repository cleanup.
+The repository is a **portfolio record of the 2023–2024 work**. It includes a browsable snapshot of the VM's O-RAN source trees and their local changes. The original VirtualBox machine remains the archive. The stack was not redeployed or functionally tested during this repository cleanup.
 
 ## What the work covered
 
@@ -22,6 +22,7 @@ flowchart LR
 
 | Path | Contents |
 | --- | --- |
+| [`source/`](source/) | Six VM source trees with 3,831 publishable files. The [source guide](source/README.md) lists upstream roles and publication exclusions. |
 | [`changes/`](changes/) | Five patches preserving 76 local changes across the upstream working trees, with scope and exclusions explained in the [change guide](changes/README.md). |
 | [`historical-scripts/`](historical-scripts/) | Local J-release installation helpers and kubeadm configuration copied from the VM. These are archival scripts with destructive setup steps. |
 | [`examples/`](examples/) | Small, sanitized A1/PMS configuration examples derived from the VM and notes. They are documentation excerpts, not a complete Helm recipe. |
@@ -38,4 +39,4 @@ The local VM used Ubuntu 22.04-era packages, Kubernetes `1.28.1`, Docker `20.10.
 
 ## Attribution
 
-The RIC, Non-RT RIC, and RAN PM platforms are upstream projects. This repository preserves local working-tree changes, scripts, configuration examples, and experiment evidence; it does not claim authorship of upstream platform code. See [provenance](docs/provenance.md) for links and commit IDs.
+The RIC, Non-RT RIC, RAN PM, OAM, and rApp Manager source trees come from upstream projects. The VM's local changes are the portfolio contribution; the source snapshots provide their full project context. This repository does not claim authorship of upstream platform code. See [provenance](docs/provenance.md) for origins and commit IDs, and keep the licenses and copyright notices in each source tree when reusing it.

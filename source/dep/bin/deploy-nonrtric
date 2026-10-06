@@ -1,0 +1,245 @@
+#!/bin/bash
+################################################################################
+#   Copyright (c) 2023 Nordix Foundation.                                      #
+#   Copyright (C) 2023-2024 OpenInfra Foundation Europe. All rights reserved.  #
+#                                                                              #
+#   Licensed under the Apache License, Version 2.0 (the "License");            #
+#   you may not use this file except in compliance with the License.           #
+#   You may obtain a copy of the License at                                    #
+#                                                                              #
+#       http://www.apache.org/licenses/LICENSE-2.0                             #
+#                                                                              #
+#   Unless required by applicable law or agreed to in writing, software        #
+#   distributed under the License is distributed on an "AS IS" BASIS,          #
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+#   See the License for the specific language governing permissions and        #
+#   limitations under the License.                                             #
+################################################################################
+
+# This script deploys NonRtRic components automatically
+
+
+
+if [ "$#" -eq 1 ]; then
+    OVERRIDEYAML=$1
+else
+
+    while [ -n "$1" ]; do # while loop starts
+
+        case "$1" in
+
+        -f) OVERRIDEYAML=$2
+            shift
+            ;;
+        *) echo "Option $1 not recognized" ;; # In case you typed a different option other than a,b,c
+
+        esac
+
+        shift
+
+    done
+fi
+
+
+if [ -z "$OVERRIDEYAML" ];then
+    echo "****************************************************************************************************************"
+    echo "                                                     ERROR                                                      "
+    echo "****************************************************************************************************************"
+    echo "RIC deployment without deployment recipe is currently disabled. Please specify an recipe with the -f option."
+    echo "****************************************************************************************************************"
+    exit 1
+fi
+
+if ! command -v yq > /dev/null 2>&1; then
+    echo "yq is not installed. Installing yq..."
+    sudo snap install yq --channel=v4/stable
+fi
+
+INSTALL_KONG=$(cat $OVERRIDEYAML | yq e '.nonrtric.installKong' -)
+if [ $? -ne 0 ] || [ -z "$INSTALL_KONG"  ]; then
+    echo "Error: failed to parse installKong from YAML with yq. Aborting install."
+    exit 1
+fi
+
+INSTALL_CAPIF=$(cat $OVERRIDEYAML | yq e '.nonrtric.installCapifcore' -)
+if [ $? -ne 0 ] || [ -z "$INSTALL_CAPIF"  ]; then
+    echo "Error: failed to parse installCapifcore from YAML with yq. Aborting install."
+    exit 1
+fi
+
+INSTALL_SERVICEMANAGER=$(cat $OVERRIDEYAML | yq e '.nonrtric.installServicemanager' -)
+if [ $? -ne 0 ] || [ -z "$INSTALL_SERVICEMANAGER"  ]; then
+    echo "Error: failed to parse installServicemanager from YAML with yq. Aborting install."
+    exit 1
+fi
+
+if [ "$INSTALL_SERVICEMANAGER" == "true" ]; then
+    if [ "$INSTALL_KONG" == "false" ]; then
+        echo "Error: INSTALL_KONG must be true if INSTALL_SERVICEMANAGER is true. Aborting install."
+        exit 1
+    fi
+    if [ "$INSTALL_CAPIF" == "false" ]; then
+        echo "Error: INSTALL_CAPIF must be true if INSTALL_SERVICEMANAGER is true. Aborting install."
+        exit 1
+    fi
+fi
+
+ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+
+echo "** $ROOT_DIR"
+rm $ROOT_DIR/../nonrtric/helm/*/charts/*.tgz
+
+#ChartMuseum configuration
+CM_VERSION="v0.16.1"
+CM_PORT="8879"
+CM_BASE_URL="http://127.0.0.1:$CM_PORT"
+CM_CHART_GET_URL="$CM_BASE_URL/charts"
+CM_CHART_POST_URL="$CM_BASE_URL/charts/api/charts"
+
+#Check for helm3
+IS_HELM3=$(helm version -c --short|grep -e "^v3")
+
+if ! command -v chartmuseum &> /dev/null
+then
+  pushd /tmp
+  echo "Installing ChartMuseum binary..."
+  wget https://get.helm.sh/chartmuseum-$CM_VERSION-linux-amd64.tar.gz
+  tar xvfz chartmuseum-$CM_VERSION-linux-amd64.tar.gz
+  sudo mv /tmp/linux-amd64/chartmuseum /usr/local/bin/chartmuseum
+  popd
+else
+  echo "ChartMuseum is already installed."
+fi
+
+# Package common templates and serve it using Helm local repo
+HELM_LOCAL_REPO="./chartstorage"
+rm $HELM_LOCAL_REPO/*
+
+#Start Chart Museum server if there isn't one
+CHART_MUSEUM_PID=$(lsof -i :"$CM_PORT" | grep "chartmus" | grep -v "grep" | awk '{print $2}')
+if [ -z "$CHART_MUSEUM_PID" ]; then
+  echo "Starting ChartMuseum on port $CM_PORT..."
+  nohup chartmuseum --port=$CM_PORT --storage="local" --context-path=/charts --storage-local-rootdir=$HELM_LOCAL_REPO >/dev/null 2>&1 &
+  echo $! > $ROOT_DIR/CM_PID.txt
+else
+  echo "ChartMuseum is already running..."
+fi
+
+# Check if ChartMuseum  is ready to serve request
+command="curl --silent --output /dev/null  $CM_BASE_URL"
+for i in $(seq 1 5)
+do $command && s=0 && break || s=$? && echo "Failed to establish a connection with the ChartMuseum server. Retrying after 5s" && sleep 5;
+done
+
+if [ $s -gt 0 ]
+then
+        echo "Cmd to test ChartMuseum failed with ($s): $command"
+        exit $s
+fi
+
+helm repo remove local
+helm repo add local $CM_CHART_GET_URL
+
+echo -e "\nPackaging NONRTRIC common [nonrtric-common]"
+NONRTRIC_COMMON_CHART_VERSION=$(cat $ROOT_DIR/../ric-common/Common-Template/helm/nonrtric-common/Chart.yaml | grep version | awk '{print $2}')
+helm package -d /tmp $ROOT_DIR/../ric-common/Common-Template/helm/nonrtric-common
+curl --data-binary @/tmp/nonrtric-common-$NONRTRIC_COMMON_CHART_VERSION.tgz $CM_CHART_POST_URL
+
+charts_already_exists=()
+
+COMPONENTS="
+a1controller \
+a1simulator \
+capifcore \
+controlpanel \
+dmaapadapterservice \
+dmaapmediatorservice \
+dmeparticipant \
+helmmanager \
+informationservice \
+nonrtricgateway \
+orufhrecovery \
+policymanagementservice \
+ransliceassurance \
+rappcatalogueenhancedservice \
+rappcatalogueservice \
+rappmanager \
+servicemanager \
+"
+
+for component in $COMPONENTS; do
+    echo "Packaging NONRTRIC component [$component]"
+    helm dep up $ROOT_DIR/../nonrtric/helm/$component
+    VERSION=$(cat $ROOT_DIR/../nonrtric/helm/$component/Chart.yaml | grep version | awk '{print $2}')
+    helm package -d /tmp $ROOT_DIR/../nonrtric/helm/$component
+    resp_code=$(curl -s -o /dev/null -w "%{http_code}" --data-binary @/tmp/$component-$VERSION.tgz $CM_CHART_POST_URL)
+    echo "Chart upload status of $component is $resp_code"
+    if [ "$resp_code" -eq 409 ]; then
+      charts_already_exists+=("$component")
+    fi
+done
+
+if [ ${#charts_already_exists[@]} -gt 0 ]; then
+  echo "----------------------------------- WARNING!!! -------------------------------------------"
+  echo "The following charts already exists in ChartMuseum '${charts_already_exists[@]}'."
+  echo "The current build of the charts hasn't been updated because the charts already exist."
+  echo "It is recommended to delete the charts from ChartMuseum before the build."
+  echo "------------------------------------------------------------------------------------------"
+fi
+
+helm dep up $ROOT_DIR/../nonrtric/helm/nonrtric
+
+helm repo index ${HELM_LOCAL_REPO}
+
+# Make sure that helm local repo is added
+helm repo add local $CM_CHART_GET_URL --force-update
+
+echo "Finished Packaging NONRTRIC components [$COMPONENTS]"
+
+
+COMMON_BLOCK=$(cat $OVERRIDEYAML | awk '/^common:/{getline; while ($0 ~ /^ +.*|^ *$/) {print $0; if (getline == 0) {break}}}')
+NAMESPACE_BLOCK=$(cat $OVERRIDEYAML | awk '/^  namespace:/{getline; while ($0 ~ /^    .*|^ *$/) {print $0; if (getline == 0) {break}}}')
+NONRTRIC_NAMESPACE=$(echo "$NAMESPACE_BLOCK" | awk '/^ *nonrtric:/{print $2}')
+RELEASE_PREFIX=$(echo "$COMMON_BLOCK" | awk '/^ *releasePrefix:/{print $2}')
+INSTALL_RANPM=$(cat $OVERRIDEYAML | awk '/^  installRanpm:/{print $2}')
+
+if ! kubectl get ns ${NONRTRIC_NAMESPACE:-nonrtric}> /dev/null 2>&1; then
+    kubectl create ns ${NONRTRIC_NAMESPACE:-nonrtric}
+fi
+
+if ! kubectl get ns onap > /dev/null 2>&1; then
+    kubectl create ns onap
+fi
+
+HELM_NAME_OPT=""
+if [ -z $IS_HELM3 ];then
+   HELM_NAME_OPT="--name"
+fi
+
+echo "Install Kong- $INSTALL_KONG"
+
+if [ "$INSTALL_KONG" = true ];then
+  echo "Install kongstorage through helm"
+  helm install kongstorage -n "${NONRTRIC_NAMESPACE:-nonrtric}" ${HELM_NAME_OPT}  "$ROOT_DIR/../nonrtric/helm/kongstorage"
+
+  echo "Installing Kong"
+  helm repo add kong https://charts.konghq.com --force-update
+  helm repo update
+  helm install oran-nonrtric kong/kong -n ${NONRTRIC_NAMESPACE:-nonrtric} -f dep/nonrtric/helm/kongstorage/kongvalues.yaml
+fi
+
+kubectl create configmap -n ${NONRTRIC_NAMESPACE:-nonrtric} nonrtric-recipe --from-file=recipe=$OVERRIDEYAML
+
+echo "Deploying NONRTRIC"
+
+echo "Install Ranpm- $INSTALL_RANPM"
+
+if [ "$INSTALL_RANPM" = true ];then
+   echo "Running install-ranpm.sh"
+   chmod +x ${ROOT_DIR}/../ranpm/install/install-ranpm.sh
+   ${ROOT_DIR}/../ranpm/install/install-ranpm.sh
+   echo "install-ranpm.sh completed"
+fi
+
+echo "helm install -f $OVERRIDEYAML --namespace ${NONRTRIC_NAMESPACE:-nonrtric} ${HELM_NAME_OPT} ${RELEASE_PREFIX} $ROOT_DIR/../nonrtric/helm/nonrtric"
+helm install -f $OVERRIDEYAML -n "${NONRTRIC_NAMESPACE:-nonrtric}" ${HELM_NAME_OPT} "${RELEASE_PREFIX}" "$ROOT_DIR/../nonrtric/helm/nonrtric"

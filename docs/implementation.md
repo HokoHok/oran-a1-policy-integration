@@ -21,7 +21,7 @@ This is the order described by the [J-release notes](https://hackmd.io/@_Rheq0BS
 | `RECIPE_EXAMPLE/example_recipe_oran_j_release.yaml` | Changes `extsvcplt.ricip` from the upstream example address to the VM's address. | Makes the recipe specific to the historical VM. |
 | `helm/infrastructure/values.yaml` | Changes `kong.enabled` from `true` to `false`. | Matches the standalone Kong approach. |
 
-The VM has 50 tracked changes in `ric-dep`, many caused by the broad API-version replacement in bundled Kong/Prometheus templates. Forty-nine of those changes are preserved as [core and chart patches](../changes/README.md); the static-address recipe is omitted. The complete upstream trees remain in the VM. The selected local helper scripts are preserved under [`historical-scripts/`](../historical-scripts/).
+The VM has 50 tracked changes in `ric-dep`, many caused by the broad API-version replacement in bundled Kong/Prometheus templates. Forty-nine changes are preserved as [core and chart patches](../changes/README.md); the static-address recipe is present in the [source snapshot](../source/ric-dep/). The selected local helper scripts are also available under [`historical-scripts/`](../historical-scripts/).
 
 ## Non-RT RIC (`/root/dep`)
 

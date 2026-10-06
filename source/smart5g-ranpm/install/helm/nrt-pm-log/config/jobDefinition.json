@@ -1,0 +1,24 @@
+{
+   "info_type_id": "PmData",
+   "job_owner": "console",
+   "job_definition": {
+      "filter": {
+         "sourceNames": [],
+         "measObjInstIds": [],
+         "measTypeSpecs": [
+            {
+               "measuredObjClass": "NRCellDU",
+               "measTypes": [
+                  "pmCellPrbTotDl",
+                  "pmRrcConnectedUes"
+               ]
+            }
+         ],
+         "measuredEntityDns": []
+      },
+      "deliveryInfo": {
+         "topic": "pmreports",
+         "bootStrapServers": "kafka-1-kafka-bootstrap.nonrtric:9097"
+      }
+   }
+}

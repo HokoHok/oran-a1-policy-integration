@@ -1,0 +1,2351 @@
+[
+    {
+        "id": "51e83a0892da060e",
+        "type": "tab",
+        "label": "Event Streaming (VES)",
+        "disabled": false,
+        "info": "Sends a VES messages with body defined by 3GPP TS 28.532.\n",
+        "env": []
+    },
+    {
+        "id": "db7b8dca98eba850",
+        "type": "tab",
+        "label": "Message Topics",
+        "disabled": false,
+        "info": "Subscribes to kafka topics using the strimzi kafka bridge implementation. \n",
+        "env": []
+    },
+    {
+        "id": "7ba02ed596e8cde5",
+        "type": "tab",
+        "label": "OpenFronthaul",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "7b2f4859e5963695",
+        "type": "tls-config",
+        "name": "",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": false,
+        "alpnprotocol": ""
+    },
+    {
+        "id": "91a1f8d3ce84ceda",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "notifyFileReady",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyFileReady",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 500,
+        "wires": [
+            [
+                "b5533c10604af5a6",
+                "f8e64d1cb25eb4ab"
+            ]
+        ]
+    },
+    {
+        "id": "b5533c10604af5a6",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesHeader",
+        "func": "const timeStamp = new Date(msg.payload);\nconst eventType = msg.topic;\nlet domain = \"stndDefined\";\n// handle domain expecption for 'pnfRegistration'\nif (eventType === 'pnfRegistration') {\n    domain = eventType;\n} \nconst nfNamingCode = env.get('APP_NETWORK_FUNCTION_ID');\nconst namespaces = {\n    pnfRegistration: undefined,\n    o1NotifyPnfRegistration: 'o1-notify-pnf-registration',\n    oRanScDuHelloWorldPmStreaming: 'o-ran-sc-du-hello-world-pm-streaming-oas3',\n    notifyHeartbeat: '3GPP-Heartbeat',\n    notifyFileReady: 'file-ready',\n    notifyFilePreparationError: 'file-ready',\n    notifyNewAlarm: '3GPP-FaultSupervision',\n    notifyChangedAlarm: '3GPP-FaultSupervision',\n    notifyChangedAlarmGeneral: '3GPP-FaultSupervision',\n    notifyAckStateChanged: '3GPP-FaultSupervision',\n    notifyCorrelatedNotificationChanged: '3GPP-FaultSupervision',\n    notifyComments: '3GPP-FaultSupervision',\n    notifyClearedAlarm: '3GPP-FaultSupervision',\n    notifyAlarmListRebuilt: '3GPP-FaultSupervision',\n    notifyPotentialFaultyAlarmList: '3GPP-FaultSupervision'\n};\nconst topic = namespaces[eventType] || msg.topic;\n\nmsg.topic = \"commonEventHeader\"\nmsg.payload = {\n    domain: domain,\n    eventType: eventType,\n    eventId:[nfNamingCode, eventType, msg._msgid].join('_'),\n    eventName: [domain, eventType].join('_'),\n    sequence: Number(timeStamp),\n    priority: \"Low\",\n    reportingEntityId: \"c2b7d6e9-ee35-459a-ab8e-717a6fc1fde6\",\n    reportingEntityName: global.get('os').hostname(),\n    sourceId: \"378e9904-6d39-40ea-9994-0596fe2235a3\",\n    sourceName: env.get('APP_SOURCE'),\n    startEpochMicrosec: timeStamp.getTime() * 1000,\n    lastEpochMicrosec: timeStamp.getTime() * 1000,\n    nfNamingCode: nfNamingCode,\n    nfVendorName: env.get('APP_VENDOR'),\n    timeZoneOffset: \"+00:00\",\n    stndDefinedNamespace: topic,\n    version: \"4.1\",\n    vesEventListenerVersion: \"7.2.1\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 260,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "f8e64d1cb25eb4ab",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const timeStamp = new Date(msg.payload);\nconst startTime = new Date(Math.floor(Number(timeStamp) / 900000) * 900000);\nconst endTime = new Date(Number(startTime) + 900000);\nconst paddy = (num, padlen, padchar) => {\n    const pad_char = typeof padchar !== 'undefined' ? padchar : '0';\n    const pad = new Array(1 + padlen).join(pad_char);\n    return (pad + num).slice(-pad.length);\n}\nconst fileStartTime = [\n    paddy(startTime.getFullYear(), 4),\n    paddy(startTime.getMonth() + 1, 2),\n    paddy(startTime.getDate(), 2),\n    '.',\n    paddy(startTime.getHours(), 2),\n    paddy(startTime.getMinutes(), 2),\n    '+0000'\n].join('');\nconst fileEndTime = [\n    paddy(endTime.getHours(), 2),\n    paddy(endTime.getMinutes(), 2),\n    '+0000'\n].join('');\nconst fileLocation = ['/pm-data-files/A', fileStartTime, '-', fileEndTime, '_', env.get('APP_NETWORK_FUNCTION_ID'), '.xml'].join('');\nmsg.payload = {\n    schemaReference: 'https://forge.3gpp.org/rep/sa5/MnS/raw/Rel-18/OpenAPI/TS28532_FileDataReportingMnS.yaml#components/schemas/NotifyFileReady',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        href: global.get('os').hostname(),\n        notificationId: Number(startTime),\n        notificationType: msg.topic,\n        eventTime: timeStamp.toISOString(),\n        systemDN: '/',\n        fileInfoList: [\n            {\n                fileLocation: fileLocation,\n                fileSize: 1234,\n                fileReadyTime: startTime.toISOString(),\n                fileExpirationTime: endTime.toISOString(),\n                fileCompression: 'no',\n                fileFormat: 'xml',\n                fileDataType: 'Performance'\n            }\n        ],\n        additionalText: 'Have fun!'\n    }\n};\nmsg.topic = 'stndDefinedFields';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 500,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "f65b1c13e0243ef6",
+        "type": "join",
+        "z": "51e83a0892da060e",
+        "name": "",
+        "mode": "custom",
+        "build": "object",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "accumulate": false,
+        "timeout": "",
+        "count": "2",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 690,
+        "y": 280,
+        "wires": [
+            [
+                "1d6949a57bce82ab"
+            ]
+        ]
+    },
+    {
+        "id": "1d6949a57bce82ab",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('VES_ENDPOINT_PROTOCOL');\nconst host = env.get('VES_ENDPOINT_HOST');\nconst port = env.get('VES_ENDPOINT_PORT');\nconst base = protocol + '://' + host + ':' + port;\nconst path = 'eventListener/v7';\nmsg.url = [base, path].join('/');\n\nconst user = env.get('VES_ENDPOINT_USERNAME');\nconst password = env.get('VES_ENDPOINT_PASSWORD');\nconst auth = Buffer.from([user, password].join(':')).toString('base64')\nconst basicAuth = ['Basic', auth].join(' ');\n\nmsg.headers = {};\nmsg.headers['Content-Type'] = 'application/json';\nmsg.headers['Accept'] = 'application/json';\nmsg.headers['Authorization'] = basicAuth;\n\nmsg.payload = {\n  event: msg.payload\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 840,
+        "y": 280,
+        "wires": [
+            [
+                "27e1d8d1e9b8fd93",
+                "9ab2b4d9caf52c14"
+            ]
+        ]
+    },
+    {
+        "id": "27e1d8d1e9b8fd93",
+        "type": "http request",
+        "z": "51e83a0892da060e",
+        "name": "",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "7b2f4859e5963695",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1030,
+        "y": 280,
+        "wires": [
+            [
+                "f3412bcb9e134063"
+            ]
+        ]
+    },
+    {
+        "id": "f3412bcb9e134063",
+        "type": "debug",
+        "z": "51e83a0892da060e",
+        "name": "VesCollectorResponse",
+        "active": true,
+        "tosidebar": false,
+        "console": true,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 1230,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "b5e1e7a83051b5b6",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "pnfRegistration",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "pnfRegistration",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 80,
+        "wires": [
+            [
+                "bd43459cf3907a5a",
+                "b5533c10604af5a6"
+            ]
+        ]
+    },
+    {
+        "id": "bd43459cf3907a5a",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesBody",
+        "func": "msg.topic = 'pnfRegistrationFields';\nmsg.payload = {\n    pnfRegistrationFieldsVersion: '2.1',\n    lastServiceDate: '2023-02-05',\n    macAddress: '02:42:f7:d4:62:ce',\n    manufactureDate: '2021-01-16',\n    modelNumber: 'O-RAN-SC Model',\n    oamV4IpAddress: '10.10.10.11',\n    oamV6IpAddress: '0:0:0:0:0:ffff:a0a:011',\n    serialNumber: 'VENDORA-PNF2-10.10.10.11-pnf2 BestInClass',\n    softwareVersion: '2.3.5',\n    unitFamily: \"O-RAN-SC\",\n    unitType: 'PNF2',\n    vendorName: env.get('APP_VENDOR'),\n    additionalFields: {\n        oamPort: '830',\n        protocol: 'SSH',\n        username: 'netconf',\n        password: 'netconf!',\n        reconnectOnChangedSchema: 'false',\n        'sleep-factor': '1.5',\n    tcpOnly: 'false',\n    connectionTimeout: '20000',\n    maxConnectionAttempts: '100',\n    betweenAttemptsTimeout: '2000',\n    keepaliveDelay: '120'\n}\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 80,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "9ab2b4d9caf52c14",
+        "type": "debug",
+        "z": "51e83a0892da060e",
+        "name": "ves-message-data",
+        "active": false,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.event.commonEventHeader.stndDefinedNamespace",
+        "statusType": "msg",
+        "x": 1060,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "7d589030272c0a94",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "notifyHeartbeat",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "3",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyHeartbeat",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 420,
+        "wires": [
+            [
+                "b5533c10604af5a6",
+                "ab3bc53f12d28d8f"
+            ]
+        ]
+    },
+    {
+        "id": "ab3bc53f12d28d8f",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const timeStamp = new Date(msg.payload);\nmsg.payload = {\n    schemaReference: 'https://forge.3gpp.org/rep/sa5/MnS/raw/Rel-18/OpenAPI/TS28532_HeartbeatNtf.yaml#components/schemas/NotifyHeartbeat',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        href: global.get('os').hostname(),\n        notificationId: Number(timeStamp),\n        notificationType: msg.topic,\n        eventTime: timeStamp.toISOString(),\n        systemDN: \"/\",\n        heartbeatNtfPeriod: 120\n    }\n};\nmsg.topic = \"stndDefinedFields\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 420,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "1bada25ea9a5aa01",
+        "type": "comment",
+        "z": "51e83a0892da060e",
+        "name": "from SA5 R-18 branch",
+        "info": "",
+        "x": 120,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "f4f4670363ec760f",
+        "type": "comment",
+        "z": "51e83a0892da060e",
+        "name": "from O-RAN-SC",
+        "info": "",
+        "x": 100,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "e4dc4647c388ab77",
+        "type": "comment",
+        "z": "51e83a0892da060e",
+        "name": "from ONAP",
+        "info": "",
+        "x": 90,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "fb6413675e22dc71",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "o1NotifyPnfRegistration",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o1NotifyPnfRegistration",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 180,
+        "wires": [
+            [
+                "b5533c10604af5a6",
+                "51f5fa54867b7e65"
+            ]
+        ]
+    },
+    {
+        "id": "73beab79d5024f4b",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "oRanScDuHelloWorldPmStreaming",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "oRanScDuHelloWorldPmStreaming",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 220,
+        "wires": [
+            [
+                "5c6f93626fac58b5",
+                "b5533c10604af5a6"
+            ]
+        ]
+    },
+    {
+        "id": "51f5fa54867b7e65",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const timeStamp = new Date(msg.payload);\nmsg.payload = {\n    schemaReference: 'https://gerrit.o-ran-sc.org/r/gitweb?p=scp/oam/modeling.git;a=blob_plain;f=data-model/yang/working/o-ran-sc/template/yes-o1-notify-pnf-registration.yang',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        'object-class': 'managed-element',\n        'object-instance': global.get('os').hostname(),\n        'notification-identifier': Number(timeStamp),\n        'notification-type': msg.topic,\n        'event-time': timeStamp.toISOString(),\n        systemDN: \"/\",\n        'vendor-pen': '57272',\n        'vendor-name': 'highstreet technologies USA Corp.',\n        'oam-host': global.get('os').networkInterfaces()['eth0'][0].address || global.get('os').hostname(),\n        'oam-port': 830,\n        'unit-family': 'O-RAN-SC',\n        'unit-type': 'PNF2',\n        'restart-reason': 'system-reboot',\n        'serial-number': 'O-RAN-SC-PNF2-10.10.10.11-pnf2 BestInClass',\n        'macAddress': global.get('os').networkInterfaces()['eth0'][0].mac || '00:00:00:00:00:00',\n        'modelNumber': 'O-RAN-SC Model',\n        'softwareVersion': '2.3.5',\n        'manufactureDate': '2021-01-16',\n        'lastServiceDate': '2021-03-26',\n        'transport-protocol': 'SSH',\n        'username': 'netconf',\n        'password': 'netconf!',\n        'reconnect-on-changed-schema': 'false',\n        'sleep-factor': '1.5',\n        'tcpOnly': 'false',\n        'connection-timeout': '20000',\n        'max-connection-attempts': '100',\n        'between-attempts-timeout': '2000',\n        'keepalive-delay': '120'\n    }\n};\nmsg.topic = \"stndDefinedFields\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 180,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "5c6f93626fac58b5",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const timeStamp = new Date(msg.payload);\nmsg.payload = {\n  schemaReference: 'https://gerrit.o-ran-sc.org/r/gitweb?p=scp/oam/modeling.git;a=blob_plain;f=data-model/oas3/experimental/o-ran-sc-du-hello-world-pm-streaming-oas3.yaml#components/schemas/performance-measurement-job',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        id: 'id:' + Number(timeStamp),\n        'start-time': timeStamp.toISOString(),\n        'administrative-state': 'unlocked',\n        'operational-state': 'enabled',\n        'user-label': 'pm-kpis',\n        'job-tag': '1a0827b7-25e7-4292-959f-6b8ab46f14c2',\n        'granularity-period': 900,\n        measurements: [\n          {\n            'measurement-type-instance-reference': 'user-equipment-average-throughput-downlink',\n            value: 300000000,\n            unit: 'kBis/s'\n          },\n          {\n            'measurement-type-instance-reference': 'user-equipment-average-throughput-uplink',\n            value: 300000000,\n            unit: 'kBis/s'\n          }\n        ]\n    }\n};\nmsg.topic = \"stndDefinedFields\";\nreturn msg;\n\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 220,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "456597d0477d239f",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "o-ran-file-management:file-download-event",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-file-management:file-download-event",
+        "payload": "",
+        "payloadType": "date",
+        "x": 820,
+        "y": 820,
+        "wires": [
+            [
+                "f40d1d16c7044edc",
+                "b5533c10604af5a6"
+            ]
+        ]
+    },
+    {
+        "id": "f40d1d16c7044edc",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const eventTime = new Date(msg.payload).toISOString();\nmsg.payload = {\n    schemaReference: 'https://gerrit.o-ran-sc.org/r/gitweb?p=scp/oam/modeling.git;a=blob_plain;f=data-model/yang/published/o-ran/ru-fh/o-ran-file-management.yang#components/schemas/ofhm-event-stream',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        'ietf:notification': {\n            'eventTime': eventTime,\n            'o-ran-file-management:file-download-event': {\n                'local-logical-file-path': 'o-ran/log',\n                'remote-file-path': 'ftpes://username@ftpes.dcn.smo.o-ran-sc/downloads',\n                'status': 'FAILURE',\n                'reject-reason': 'FTPes Server not reachable.'\n            }\n        }\n    }\n};\nmsg.topic = 'stndDefinedFields';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1150,
+        "y": 820,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "3d8f8180f204d804",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "o-ran-file-management:file-upload-notification",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-file-management:file-upload-notification",
+        "payload": "",
+        "payloadType": "date",
+        "x": 830,
+        "y": 860,
+        "wires": [
+            [
+                "d473bf42d8169599",
+                "b5533c10604af5a6"
+            ]
+        ]
+    },
+    {
+        "id": "d473bf42d8169599",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const eventTime = new Date(msg.payload).toISOString();\nmsg.payload = {\n    schemaReference: 'https://gerrit.o-ran-sc.org/r/gitweb?p=scp/oam/modeling.git;a=blob_plain;f=data-model/yang/published/o-ran/ru-fh/o-ran-file-management.yang#components/schemas/ofhm-event-stream',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        'ietf:notification': {\n            'eventTime': eventTime,\n            'o-ran-file-management:file-upload-notification': {\n                'local-logical-file-path': 'o-ran/log',\n                'remote-file-path': 'ftpes://username@ftpes.dcn.smo.o-ran-sc/downloads',\n                'status': 'FAILURE',\n                'reject-reason': 'FTPes Server not reachable.'\n            }\n        }\n    }\n};\nmsg.topic = 'stndDefinedFields';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1150,
+        "y": 860,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "ec85f2a64f79450d",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "o-ran-supervision:supervision-notification",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-supervision:supervision-notification",
+        "payload": "",
+        "payloadType": "date",
+        "x": 820,
+        "y": 1140,
+        "wires": [
+            [
+                "96ea9b3d7d4121dc",
+                "b5533c10604af5a6"
+            ]
+        ]
+    },
+    {
+        "id": "96ea9b3d7d4121dc",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const eventTime = new Date(msg.payload).toISOString();\nmsg.payload = {\n    schemaReference: 'https://gerrit.o-ran-sc.org/r/gitweb?p=scp/oam/modeling.git;a=blob_plain;f=data-model/yang/published/o-ran/ru-fh/o-ran-supervision.yang#components/schemas/ofhm-event-stream',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        'ietf:notification': {\n            'eventTime': eventTime,\n            'o-ran-supervision:supervision-notification': {\n                'session-id': 999999\n            }\n        }\n    }\n};\nmsg.topic = 'stndDefinedFields';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1150,
+        "y": 1140,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "027098b9ba7cd1e6",
+        "type": "comment",
+        "z": "51e83a0892da060e",
+        "name": "from OpenFronthaul Management-Plane",
+        "info": "",
+        "x": 780,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "e80ff3c876a343e5",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-ald-port:dc-enabled-status-change",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-ald-port:dc-enabled-status-change",
+        "payload": "",
+        "payloadType": "date",
+        "x": 820,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c61fe1f3bdb954d5",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-ald-port:overcurrent-report",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-ald-port:overcurrent-report",
+        "payload": "",
+        "payloadType": "date",
+        "x": 790,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "939ac153e888cc93",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-antenna-calibration:antenna-calibration-coordinated",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-antenna-calibration:antenna-calibration-coordinated",
+        "payload": "",
+        "payloadType": "date",
+        "x": 870,
+        "y": 500,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f7834ee33e7731fb",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-antenna-calibration:antenna-calibration-multiple-time-resource-params",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-antenna-calibration:antenna-calibration-multiple-time-resource-params",
+        "payload": "",
+        "payloadType": "date",
+        "x": 930,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8e98d432fcaef200",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-antenna-calibration:antenna-calibration-required",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-antenna-calibration:antenna-calibration-required",
+        "payload": "",
+        "payloadType": "date",
+        "x": 860,
+        "y": 580,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "554cb2ce5934b36c",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-antenna-calibration:antenna-calibration-result",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-antenna-calibration:antenna-calibration-result",
+        "payload": "",
+        "payloadType": "date",
+        "x": 850,
+        "y": 620,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "391ce0bfa3b8003d",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-beamforming:beamforming-information-update",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-beamforming:beamforming-information-update",
+        "payload": "",
+        "payloadType": "date",
+        "x": 850,
+        "y": 660,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "966ca15e87b419f5",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-beamforming:capability-group-beamforming-information-update",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-beamforming:capability-group-beamforming-information-update",
+        "payload": "",
+        "payloadType": "date",
+        "x": 900,
+        "y": 700,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "243cffacec890e26",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-beamforming:predefined-beam-tilt-offset-complete",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-beamforming:predefined-beam-tilt-offset-complete",
+        "payload": "",
+        "payloadType": "date",
+        "x": 860,
+        "y": 740,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "843c4093e2ddd914",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-externalio:external-input-change",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-externalio:external-input-change",
+        "payload": "",
+        "payloadType": "date",
+        "x": 810,
+        "y": 780,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "627b31335d7e5b6f",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-fm:alarm-notif",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-fm:alarm-notif",
+        "payload": "",
+        "payloadType": "date",
+        "x": 750,
+        "y": 900,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "87c1e3e0e87bd7c1",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-laa-operations:measurement-result",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-laa-operations:measurement-result",
+        "payload": "",
+        "payloadType": "date",
+        "x": 820,
+        "y": 940,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "27d98684362bee02",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-performance-management:measurement-result-stats",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-performance-management:measurement-result-stats",
+        "payload": "",
+        "payloadType": "date",
+        "x": 870,
+        "y": 980,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "03292a70960f7d50",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-software-management:activation-event",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-software-management:activation-event",
+        "payload": "",
+        "payloadType": "date",
+        "x": 830,
+        "y": 1020,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "652dbf9c0ef73057",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-software-management:download-event",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-software-management:download-event",
+        "payload": "",
+        "payloadType": "date",
+        "x": 830,
+        "y": 1060,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "0636add6c6d4d5e2",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-software-management:install-event",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-software-management:install-event",
+        "payload": "",
+        "payloadType": "date",
+        "x": 820,
+        "y": 1100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "4c274d02a62c7565",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-sync:gnss-state-change",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-sync:gnss-state-change",
+        "payload": "",
+        "payloadType": "date",
+        "x": 780,
+        "y": 1180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ad0e319d109512e7",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-sync:ptp-state-change",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-sync:ptp-state-change",
+        "payload": "",
+        "payloadType": "date",
+        "x": 780,
+        "y": 1220,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "de24c11aa05ce94e",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-sync:synce-state-change",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-sync:synce-state-change",
+        "payload": "",
+        "payloadType": "date",
+        "x": 790,
+        "y": 1260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a9b33c01b841cc78",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-sync:synchronization-state-change",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-sync:synchronization-state-change",
+        "payload": "",
+        "payloadType": "date",
+        "x": 820,
+        "y": 1300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f4a87018c664902f",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-trace:trace-log-generated",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-trace:trace-log-generated",
+        "payload": "",
+        "payloadType": "date",
+        "x": 790,
+        "y": 1340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "7cbe4e4faa26098b",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-uplane-conf:rx-array-carriers-state-change",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-uplane-conf:rx-array-carriers-state-change",
+        "payload": "",
+        "payloadType": "date",
+        "x": 840,
+        "y": 1420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a5eeb9d399c203ca",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-troubleshooting:troubleshooting-log-generated",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-troubleshooting:troubleshooting-log-generated",
+        "payload": "",
+        "payloadType": "date",
+        "x": 850,
+        "y": 1380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "b9d72e03c66c78b3",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "o-ran-uplane-conf:tx-array-carriers-state-change",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "o-ran-uplane-conf:tx-array-carriers-state-change",
+        "payload": "",
+        "payloadType": "date",
+        "x": 840,
+        "y": 1460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "bfa425cb3d578d07",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "notifyNewAlarm",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyNewAlarm",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 620,
+        "wires": [
+            [
+                "f71ebd595a7de756",
+                "b5533c10604af5a6"
+            ]
+        ]
+    },
+    {
+        "id": "f71ebd595a7de756",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const timeStamp = new Date(msg.payload);\nconst alarm = 'Connection Loss';\nconst severity = 'CRITICAL';\n\nmsg.payload = {\n    schemaReference: 'https://forge.3gpp.org/rep/sa5/MnS/raw/Rel-18/OpenAPI/TS28532_FaultMnS.yaml#components/schemas/NotifyNewAlarm',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        href: global.get('os').hostname(),\n        notificationId: Number(timeStamp),\n        notificationType: msg.topic,\n        eventTime: timeStamp.toISOString(),\n        systemDN: '/',\n        alarmId: alarm,\n        alarmType: 'COMMUNICATIONS_ALARM',\n        probableCause: alarm,\n        specificProblem: alarm,\n        perceivedSeverity: severity,\n        backedUpStatus: true,\n        backUpObject: 'xyz',\n        trendIndication: 'MORE_SEVERE',\n        thresholdInfo: {\n            observedMeasurement: 'new',\n            observedValue: 123.1\n        },\n        correlatedNotifications: [],\n        stateChangeDefinition: [{ 'operational-state': 'DISABLED' }],\n        monitoredAttributes: {\n            interface: 'uuid-of-the-interface'\n        },\n        proposedRepairActions: 'Call the police!',\n        additionalText: 'O-RAN Software Community OAM',\n        additionalInformation: {\n            description: 'a test alarm'\n        },\n        rootCauseIndicator: false\n    }\n\n};\nmsg.topic = 'stndDefinedFields';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 620,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "82da4e47972195a4",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "notifyChangedAlarm",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyChangedAlarm",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 660,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a3d85c62bee11dad",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "notifyChangedAlarmGeneral",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyChangedAlarmGeneral",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 700,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e4651c07a56f2448",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "notifyAckStateChanged",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyAckStateChanged",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 740,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e949006e1b1fe0f0",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "notifyCorrelatedNotificationChanged",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyCorrelatedNotificationChanged",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 780,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a80169493419d5d0",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "notifyComments",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyComments",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 820,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9e0f49b3d9b0a5ef",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "notifyClearedAlarm",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyClearedAlarm",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 860,
+        "wires": [
+            [
+                "69b8d53969426ebf",
+                "b5533c10604af5a6"
+            ]
+        ]
+    },
+    {
+        "id": "418d585d7406029b",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "notifyAlarmListRebuilt",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyAlarmListRebuilt",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 900,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f856982bb3c3a65c",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "d": true,
+        "name": "notifyPotentialFaultyAlarmList",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyPotentialFaultyAlarmList",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 940,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "4617f66b8940469e",
+        "type": "comment",
+        "z": "51e83a0892da060e",
+        "name": "TS28532_FaultMnS.yaml",
+        "info": "",
+        "x": 130,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "69b8d53969426ebf",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const timeStamp = new Date(msg.payload);\nconst alarm = 'Connection Loss';\nconst severity = 'CRITICAL';\n\nmsg.payload = {\n    schemaReference: 'https://forge.3gpp.org/rep/sa5/MnS/raw/Rel-18/OpenAPI/TS28532_FaultMnS.yaml#components/schemas/NotifyClearedAlarm',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        href: global.get('os').hostname(),\n        notificationId: Number(timeStamp),\n        notificationType: msg.topic,\n        eventTime: timeStamp.toISOString(),\n        systemDN: '/',\n        alarmId: alarm,\n        alarmType: 'COMMUNICATIONS_ALARM',\n        probableCause: alarm,\n        perceivedSeverity: severity,\n        correlatedNotifications: [],\n        clearSystemId: global.get('os').hostname()\n    }\n\n};\nmsg.topic = 'stndDefinedFields';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 860,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "01e14b971772ee0a",
+        "type": "comment",
+        "z": "51e83a0892da060e",
+        "name": "TS28532_FileDataReportingMnS.yaml",
+        "info": "",
+        "x": 170,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "ea15cafd2325d76f",
+        "type": "inject",
+        "z": "51e83a0892da060e",
+        "name": "notifyFilePreparationError",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "notifyFilePreparationError",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 540,
+        "wires": [
+            [
+                "9f4bc0920fa3c0eb",
+                "b5533c10604af5a6"
+            ]
+        ]
+    },
+    {
+        "id": "9f4bc0920fa3c0eb",
+        "type": "function",
+        "z": "51e83a0892da060e",
+        "name": "vesStndDefindBody",
+        "func": "const timeStamp = new Date(msg.payload);\nconst startTime = new Date(Math.floor(Number(timeStamp) / 900000) * 900000);\nconst endTime = new Date(Number(startTime) + 900000);\nconst paddy = (num, padlen, padchar) => {\n    const pad_char = typeof padchar !== 'undefined' ? padchar : '0';\n    const pad = new Array(1 + padlen).join(pad_char);\n    return (pad + num).slice(-pad.length);\n}\nconst fileStartTime = [\n    paddy(startTime.getFullYear(), 4),\n    paddy(startTime.getMonth() + 1, 2),\n    paddy(startTime.getDate(), 2),\n    '.',\n    paddy(startTime.getHours(), 2),\n    paddy(startTime.getMinutes(), 2),\n    '+0000'\n].join('');\nconst fileEndTime = [\n    paddy(endTime.getHours(), 2),\n    paddy(endTime.getMinutes(), 2),\n    '+0000'\n].join('');\nconst fileLocation = ['/pm-data-files/A', fileStartTime, '-', fileEndTime, '_', env.get('APP_NETWORK_FUNCTION_ID'), '.xml'].join('');\nmsg.payload = {\n    schemaReference: 'https://forge.3gpp.org/rep/sa5/MnS/raw/Rel-18/OpenAPI/TS28532_FileDataReportingMnS.yaml#components/schemas/NotifyFilePreparationError',\n    stndDefinedFieldsVersion: '1.0',\n    data: {\n        href: global.get('os').hostname(),\n        notificationId: Number(startTime),\n        notificationType: msg.topic,\n        eventTime: timeStamp.toISOString(),\n        systemDN: '/',\n        fileInfoList: [\n            {\n                fileLocation: fileLocation,\n                fileSize: 1234,\n                fileReadyTime: startTime.toISOString(),\n                fileExpirationTime: endTime.toISOString(),\n                fileCompression: 'no',\n                fileFormat: 'xml',\n                fileDataType: 'Performance'\n            }\n        ],\n        reason: 'No Measurements',\n        additionalText: 'Please consult customer documentation!'\n    }\n};\nmsg.topic = 'stndDefinedFields';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 540,
+        "wires": [
+            [
+                "f65b1c13e0243ef6"
+            ]
+        ]
+    },
+    {
+        "id": "a2d14719998c5951",
+        "type": "debug",
+        "z": "db7b8dca98eba850",
+        "name": "eventData",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.length",
+        "statusType": "msg",
+        "x": 790,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "393ee0aac0784928",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "Get Data",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "get",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 580,
+        "wires": [
+            [
+                "f8d2934457eb7030"
+            ]
+        ]
+    },
+    {
+        "id": "9745e4eaaad146b5",
+        "type": "http request",
+        "z": "db7b8dca98eba850",
+        "name": "",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "7b2f4859e5963695",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": true,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 490,
+        "y": 580,
+        "wires": [
+            [
+                "ec4917fbcca1ea55"
+            ]
+        ]
+    },
+    {
+        "id": "ec4917fbcca1ea55",
+        "type": "function",
+        "z": "db7b8dca98eba850",
+        "name": "Provider",
+        "func": "global.set('topicData', msg.payload)\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 640,
+        "y": 580,
+        "wires": [
+            [
+                "a2d14719998c5951"
+            ]
+        ]
+    },
+    {
+        "id": "f8d2934457eb7030",
+        "type": "function",
+        "z": "db7b8dca98eba850",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('KAFKA_BRIDGE_PROTOCOL');\nconst host = env.get('KAFKA_BRIDGE_HOST');\nconst port = env.get('KAFKA_BRIDGE_PORT');;\nconst base = protocol + '://' + host + ':' + port;\nconst group = env.get('KAFKA_BRIDGE_CONSUMER_GROUP');\nconst name = env.get('KAFKA_BRIDGE_CONSUMER_NAME');\n\nconst urlMapping = {\n    pnfRegistration: 'unauthenticated.VES_PNFREG_OUTPUT',\n    heartbeat: 'unauthenticated.SEC_HEARTBEAT_OUTPUT',\n    fault: 'unauthenticated.SEC_FAULT_OUTPUT',\n    o1NotifyPnfRegistration: 'unauthenticated.VES_O1_NOTIFY_PNF_REGISTRATION_OUTPUT',\n    oRanScDuHelloWorldPmStreaming: 'unauthenticated.VES_O_RAN_SC_HELLO_WORLD_PM_STREAMING_OUTPUT',\n    notifyHeartbeat: 'unauthenticated.SEC_3GPP_HEARTBEAT_OUTPUT',\n    notifyFileReady: 'unauthenticated.VES_FILE_READY_OUTPUT',\n    notifyFilePreparationError: 'unauthenticated.VES_FILE_READY_OUTPUT',\n    oRanOpenfrontManagementPlane: 'unauthenticated.VES_O_RAN_SC_OPENFRONTHAUL_OUTPUT',\n    notifyNewAlarm: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT',\n    notifyChangedAlarm: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT',\n    notifyChangedAlarmGeneral: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT',\n    notifyAckStateChanged: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT',\n    notifyCorrelatedNotificationChanged: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT',\n    notifyComments: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT',\n    notifyClearedAlarm: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT',\n    notifyAlarmListRebuilt: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT',\n    notifyPotentialFaultyAlarmList: 'unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT'\n};\n\nmsg.url = [base, 'consumers', group, 'instances', name, 'records'].join('/');\nmsg.headers = {\n    accept: 'application/vnd.kafka.json.v2+json'\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 320,
+        "y": 580,
+        "wires": [
+            [
+                "9745e4eaaad146b5"
+            ]
+        ]
+    },
+    {
+        "id": "c82c06ee1b7fad77",
+        "type": "comment",
+        "z": "db7b8dca98eba850",
+        "name": "Get Records",
+        "info": "",
+        "x": 90,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "6cc496f1420404b3",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "Topics?",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.8",
+        "topic": "topics",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 400,
+        "wires": [
+            [
+                "7a931d124e3fdc64"
+            ]
+        ]
+    },
+    {
+        "id": "7a931d124e3fdc64",
+        "type": "function",
+        "z": "db7b8dca98eba850",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('KAFKA_BRIDGE_PROTOCOL');\nconst host = env.get('KAFKA_BRIDGE_HOST');\nconst port = env.get('KAFKA_BRIDGE_PORT');\nconst base = protocol + '://' + host + ':' + port;\nconst path = msg.topic;\nmsg.url = [base, path].join('/');\nmsg.method = 'get';\nmsg.headers = {\n    accept: 'application/vnd.kafka.v2+json'\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 400,
+        "wires": [
+            [
+                "53aae16b268527f7"
+            ]
+        ]
+    },
+    {
+        "id": "051acf7693d4d457",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "Do Subscription",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.6",
+        "topic": "subscription",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 300,
+        "wires": [
+            [
+                "a72e6d0ab9261954"
+            ]
+        ]
+    },
+    {
+        "id": "a72e6d0ab9261954",
+        "type": "function",
+        "z": "db7b8dca98eba850",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('KAFKA_BRIDGE_PROTOCOL');\nconst host = env.get('KAFKA_BRIDGE_HOST');\nconst port = env.get('KAFKA_BRIDGE_PORT');\nconst base = protocol + '://' + host + ':' + port;\nconst group = env.get('KAFKA_BRIDGE_CONSUMER_GROUP');\nconst name = env.get('KAFKA_BRIDGE_CONSUMER_NAME');\nmsg.url = [base, 'consumers', group, 'instances', name, msg.topic].join('/');\nmsg.method = 'post';\nmsg.headers = {\n    'content-type': 'application/vnd.kafka.v2+json',\n    accept: 'application/vnd.kafka.v2+json'\n}\nmsg.payload = {\n    \"topics\": [\"unauthenticated.VES_O1_NOTIFY_PNF_REGISTRATION_OUTPUT\", \"unauthenticated.SEC_HEARTBEAT_OUTPUT\", \"unauthenticated.VES_O_RAN_SC_HELLO_WORLD_PM_STREAMING_OUTPUT\", \"unauthenticated.VES_PNFREG_OUTPUT\", \"unauthenticated.VES_FILE_READY_OUTPUT\", \"o-ran-file-management-file-download-event\", \"bridge-quickstart-topic\", \"o-ran-file-management-file-upload-notification\", \"o-ran-supervision-supervision-notification\", \"unauthenticated.SEC_3GPP_FAULTSUPERVISION_OUTPUT\", \"my-topic\", \"unauthenticated.SEC_3GPP_HEARTBEAT_OUTPUT\", \"unauthenticated.SEC_FAULT_OUTPUT\"]\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 300,
+        "wires": [
+            [
+                "53aae16b268527f7"
+            ]
+        ]
+    },
+    {
+        "id": "53aae16b268527f7",
+        "type": "http request",
+        "z": "db7b8dca98eba850",
+        "name": "http request",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "7b2f4859e5963695",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": true,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 590,
+        "y": 300,
+        "wires": [
+            [
+                "025484501aa58b31"
+            ]
+        ]
+    },
+    {
+        "id": "025484501aa58b31",
+        "type": "debug",
+        "z": "db7b8dca98eba850",
+        "name": "Response",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "statusCode",
+        "statusType": "msg",
+        "x": 770,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "2bcd1fcc0cb4f747",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "healthy?",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "healthy",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 80,
+        "wires": [
+            [
+                "4b695d52e3231b6b"
+            ]
+        ]
+    },
+    {
+        "id": "4b695d52e3231b6b",
+        "type": "function",
+        "z": "db7b8dca98eba850",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('KAFKA_BRIDGE_PROTOCOL');\nconst host = env.get('KAFKA_BRIDGE_HOST');\nconst port = env.get('KAFKA_BRIDGE_PORT');\nconst base = protocol + '://' + host + ':' + port;\nmsg.url = [base, msg.topic].join('/');\nmsg.method = 'get';\nmsg.headers = {\n    accept: 'application/json'\n}\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 200,
+        "wires": [
+            [
+                "53aae16b268527f7"
+            ]
+        ]
+    },
+    {
+        "id": "2d834fde764e3443",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "ready?",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.2",
+        "topic": "ready",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 120,
+        "wires": [
+            [
+                "4b695d52e3231b6b"
+            ]
+        ]
+    },
+    {
+        "id": "7bbff4bdad2683f0",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "Schema?",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.4",
+        "topic": "openapi",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 200,
+        "wires": [
+            [
+                "4b695d52e3231b6b"
+            ]
+        ]
+    },
+    {
+        "id": "1b322733222d5c1d",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "Version?",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.3",
+        "topic": " ",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 160,
+        "wires": [
+            [
+                "4b695d52e3231b6b"
+            ]
+        ]
+    },
+    {
+        "id": "12e182c0bee28aad",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "CreateConsumer",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.5",
+        "topic": "consumers",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 260,
+        "wires": [
+            [
+                "46c33603561bf711"
+            ]
+        ]
+    },
+    {
+        "id": "46c33603561bf711",
+        "type": "function",
+        "z": "db7b8dca98eba850",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('KAFKA_BRIDGE_PROTOCOL');\nconst host = env.get('KAFKA_BRIDGE_HOST');\nconst port = env.get('KAFKA_BRIDGE_PORT');\nconst base = protocol + '://' + host + ':' + port;\nconst group = env.get('KAFKA_BRIDGE_CONSUMER_GROUP');\nconst name = env.get('KAFKA_BRIDGE_CONSUMER_NAME');\nmsg.url = [base, msg.topic, group].join('/');\nmsg.method = 'post';\nmsg.headers = {\n    'content-type': 'application/vnd.kafka.v2+json',\n    accept: 'application/vnd.kafka.v2+json'\n}\nmsg.payload = {\n    name: name,\n    format: 'json',\n    'auto.offset.reset': 'earliest',\n    'enable.auto.commit': true,\n    'fetch.min.bytes': 1,\n    'consumer.request.timeout.ms': 30000,\n    'isolation.level': 'read_uncommitted'\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 260,
+        "wires": [
+            [
+                "53aae16b268527f7"
+            ]
+        ]
+    },
+    {
+        "id": "63c336487e6e0eb9",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "Get Subscription",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.7",
+        "topic": "subscription",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 340,
+        "wires": [
+            [
+                "b0f5987ab4bd1256"
+            ]
+        ]
+    },
+    {
+        "id": "b0f5987ab4bd1256",
+        "type": "function",
+        "z": "db7b8dca98eba850",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('KAFKA_BRIDGE_PROTOCOL');\nconst host = env.get('KAFKA_BRIDGE_HOST');\nconst port = env.get('KAFKA_BRIDGE_PORT');\nconst base = protocol + '://' + host + ':' + port;\nconst group = env.get('KAFKA_BRIDGE_CONSUMER_GROUP');\nconst name = env.get('KAFKA_BRIDGE_CONSUMER_NAME');\nmsg.url = [base, 'consumers', group, 'instances', name, msg.topic].join('/');\nmsg.method = 'get';\nmsg.headers = {\n    accept: 'application/vnd.kafka.v2+json'\n}\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 340,
+        "wires": [
+            [
+                "53aae16b268527f7"
+            ]
+        ]
+    },
+    {
+        "id": "ccf49a001b3e92d2",
+        "type": "comment",
+        "z": "db7b8dca98eba850",
+        "name": "Preparation",
+        "info": "",
+        "x": 90,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "892cacf32948fe41",
+        "type": "function",
+        "z": "db7b8dca98eba850",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('KAFKA_BRIDGE_PROTOCOL');\nconst host = env.get('KAFKA_BRIDGE_HOST');\nconst port = env.get('KAFKA_BRIDGE_PORT');\nconst base = protocol + '://' + host + ':' + port;\nconst group = env.get('KAFKA_BRIDGE_CONSUMER_GROUP');\nconst name = env.get('KAFKA_BRIDGE_CONSUMER_NAME');\nmsg.url = [base, msg.topic, group, 'instances', name].join('/');\nmsg.method = 'delete';\nmsg.headers = {\n    'content-type': 'application/vnd.kafka.v2+json',\n    accept: 'application/vnd.kafka.v2+json'\n}\nmsg.payload = null\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 460,
+        "wires": [
+            [
+                "53aae16b268527f7"
+            ]
+        ]
+    },
+    {
+        "id": "ca171245ae7b6184",
+        "type": "inject",
+        "z": "db7b8dca98eba850",
+        "name": "DeleteConsumer",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "0.5",
+        "topic": "consumers",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 460,
+        "wires": [
+            [
+                "892cacf32948fe41"
+            ]
+        ]
+    },
+    {
+        "id": "c5648c1528804847",
+        "type": "inject",
+        "z": "7ba02ed596e8cde5",
+        "name": "supervision-watchdog-reset for O-RU-11221",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "supervision-watchdog-reset",
+        "payload": "[\"O-RU-11221\"]",
+        "payloadType": "json",
+        "x": 230,
+        "y": 100,
+        "wires": [
+            [
+                "2bd693b8c7e5a3cb"
+            ]
+        ]
+    },
+    {
+        "id": "329e838eb4bf63f4",
+        "type": "function",
+        "z": "7ba02ed596e8cde5",
+        "name": "http-preparation",
+        "func": "const protocol = env.get('SDN_CONTROLLER_PROTOCOL');\nconst host = env.get('SDN_CONTROLLER_HOST');\nconst port = env.get('SDN_CONTROLLER_PORT');;\nconst base = protocol + '://' + host + ':' + port;\nconst path = 'rests/operations/network-topology:network-topology/topology=topology-netconf/node=';\nconst nodeId = msg.payload;\nconst mount = 'yang-ext:mount';\nconst action = 'o-ran-supervision:supervision-watchdog-reset';\nmsg.url = [base,path + nodeId, mount, action].join('/');\n\nconst user = env.get('SDN_CONTROLLER_USERNAME');\nconst password = env.get('SDN_CONTROLLER_PASSWORD');\nconst auth = Buffer.from([user, password].join(':')).toString('base64')\nconst basicAuth = ['Basic', auth].join(' ');\n\nmsg.headers = {};\nmsg.headers['Content-Type'] = 'application/yang-data+json';\nmsg.headers['Accept'] = 'application/yang-data+json';\nmsg.headers['Authorization'] = basicAuth;\n\nmsg.payload = { \n  \"o-ran-supervision:input\": \n    {\n      \"supervision-notification-interval\": 60, \n      \"guard-timer-overhead\": 10\n    }\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 220,
+        "wires": [
+            [
+                "1a4b6a4ec23c8f9f",
+                "2bd693b8c7e5a3cb"
+            ]
+        ]
+    },
+    {
+        "id": "1a4b6a4ec23c8f9f",
+        "type": "http request",
+        "z": "7ba02ed596e8cde5",
+        "name": "RESTCONF request",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "7b2f4859e5963695",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": true,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 800,
+        "y": 220,
+        "wires": [
+            [
+                "eb6c2de759c8eb54"
+            ]
+        ]
+    },
+    {
+        "id": "eb6c2de759c8eb54",
+        "type": "debug",
+        "z": "7ba02ed596e8cde5",
+        "name": "Response",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.length",
+        "statusType": "msg",
+        "x": 1010,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "0d3ade9a80560c04",
+        "type": "inject",
+        "z": "7ba02ed596e8cde5",
+        "name": "Every 5s",
+        "props": [],
+        "repeat": "5",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 120,
+        "y": 140,
+        "wires": [
+            [
+                "5322d78ad66fcb96"
+            ]
+        ]
+    },
+    {
+        "id": "5322d78ad66fcb96",
+        "type": "function",
+        "z": "7ba02ed596e8cde5",
+        "name": "Consumer (new Data?)",
+        "func": "// read topic data from global context\nconst topicData = global.get('topicData');\n// init result as array\nlet result = [];\nif (Array.isArray(topicData)) {\n    result = topicData.filter(event => {\n        return event.value.event.commonEventHeader.stndDefinedNamespace === 'o-ran-supervision:supervision-notification';\n    }).map(event => {\n        return event.value.event.commonEventHeader.sourceName;;\n    });\n}\nmsg.payload = result;\nglobal.set('topicData', []);\nreturn msg; ",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 310,
+        "y": 140,
+        "wires": [
+            [
+                "2bd693b8c7e5a3cb"
+            ]
+        ]
+    },
+    {
+        "id": "2bd693b8c7e5a3cb",
+        "type": "loop",
+        "z": "7ba02ed596e8cde5",
+        "name": "Loop through O-RUs",
+        "kind": "enum",
+        "count": "",
+        "initial": "1",
+        "step": "1",
+        "condition": "",
+        "conditionType": "js",
+        "when": "before",
+        "enumeration": "payload",
+        "enumerationType": "msg",
+        "limit": "",
+        "loopPayload": "loop-val",
+        "finalPayload": "final-last",
+        "x": 580,
+        "y": 140,
+        "wires": [
+            [],
+            [
+                "329e838eb4bf63f4"
+            ]
+        ]
+    },
+    {
+        "id": "f7dc363e5421d1cf",
+        "type": "comment",
+        "z": "7ba02ed596e8cde5",
+        "name": "Supervision",
+        "info": "",
+        "x": 90,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "a72d8f5e9683dd39",
+        "type": "comment",
+        "z": "7ba02ed596e8cde5",
+        "name": "The Consumer checks for data on the message router provided by the \"Massage Topics\" flow.",
+        "info": "The Consumer checks for data on the message router provided by the \"Massage Topics\" flow.",
+        "x": 520,
+        "y": 280,
+        "wires": []
+    }
+]

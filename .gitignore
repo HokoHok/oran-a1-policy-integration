@@ -12,6 +12,7 @@ __pycache__/
 # Credentials and generated certificates
 .env
 .env.*
+*.env
 *.key
 *.p12
 *.pfx
@@ -19,6 +20,13 @@ __pycache__/
 *.keystore
 *.pem
 *.crt
+*.cer
+*.der
+*.pass
+.sec_*
+.admin_token
+.job.json
+.jsonfile*
 *kubeconfig*
 
 # Local working files

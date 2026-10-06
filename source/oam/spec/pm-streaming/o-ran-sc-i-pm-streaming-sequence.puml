@@ -1,0 +1,276 @@
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''' 
+' Copyright 2023 O-RAN-SC Projects NONRTRIC, SIM, OAM
+' This work is licensed under a Creative Commons Attribution 4.0 International License.
+' SPDX-License-Identifier: CC-BY-4.0
+' https://creativecommons.org/licenses/by/4.0/deed.en
+
+@startuml o-ran-sc-i-pm-streaming-sequence
+title 
+  Performance Measurement Data flows 
+  stream based and 3GPP xml file based
+end title
+
+' format
+autonumber 1 1 "<b>[00]"
+hide unlinked
+hide stereotype
+skinparam backgroundColor #fefefe
+skinparam roundcorner 15
+
+skinparam participant {
+    BackgroundColor<< NONRTRIC >> green
+    FontColor<< NONRTRIC >> #eeeeee
+}
+
+skinparam database {
+    BackgroundColor<< NONRTRIC >> green
+    FontColor<< NONRTRIC >> green
+}
+' end format
+
+' the sequence diagram
+box "User Space" #LightBlue
+  actor "User" as user
+end box
+
+box "App layer" #LightBlue
+    participant "rApp" as rApp
+end box
+
+box "NONRTRIC" #GoldenRod
+  participant "Information Coordinator Service (DME)" as dmeICS << NONRTRIC >>
+end box
+
+box "NONRTRIC RAN PM" #gold
+  participant "PM (File) Collector" as pmDFC << NONRTRIC >>
+  participant "PM Data Converter" as pmConvert << NONRTRIC >>
+  participant "PM Data Producer (Streamed)" as pmProducer << NONRTRIC >>
+  participant "PM Data Influx Producer/Consumer" as pmInflux << NONRTRIC >>
+end box
+
+box "SMO Common" #gold
+  participant "Topology Service" as topo
+  participant "Message Router / Kafka" as mr
+  database "PM Datastore (S3)" as pmDb << NONRTRIC >>
+  database "PM Datastore (InfluxDB)" as pmDbInflux << NONRTRIC >>
+end box
+
+box "SMO OAM" #gold
+  participant "PM Coordination" as pmCoord
+  participant "PM Collector" as pmCollectStream
+  participant "VES Collector" as ves
+  participant "OAM Controller" as sdnr
+end box
+
+box "SMO O-Cloud" #gold
+  participant "Deployment Management Service" as dms
+end box
+
+box "Network" #LightPink
+  participant "NetworkFunction\nNTSims" as nf
+  participant "PM File\nCreator Sim" as pmFileCreator << NONRTRIC >>  
+end box
+
+box "Simulation" #LightPink
+  database "Network PM" as netPm
+  participant "Data Generation" as simData
+  participant "UE Location Generation" as trigger
+end box
+
+== init ==
+
+user -> topo : provide (RAN) topology
+dms -> topo : RESTCONF GET ietf-network-topology
+dms <- topo : ietf-network-topology
+loop for all nodes in the topology
+  dms -> nf : Create simulated network function <O2>
+end loop
+simData -> topo : RESTCONF GET ietf-network-topology
+simData <- topo : ietf-network-topology
+
+== onboarding ==
+
+nf -> ves : <<HTTP/TLS>> VES pnfRegistration <O1>
+ves -> mr : forward VES pnfRegistration
+mr -> sdnr : grep VES pnfRegistration
+sdnr -> sdnr : create Mount Point
+sdnr -> nf : <<NETCONF/TLS>> establish connection <O1-CM>
+sdnr -> mr : Connected!
+mr -> pmCoord : Connection to NF established
+
+== PM Data Generation ==
+
+loop at least every second
+  trigger -> simData : send geo location for each UE
+  simData -> simData : UE perform cell selection
+  simData -> simData : Generator throughput data \nand RSRQ (PM values)
+  simData -> netPm : Store PM values per UE \nand timestamp
+  simData -> simData : aggregate data per nrDuCell
+  simData -> netPm : Store PM values per nrDuCell \nand timestamp
+  simData -> simData : aggregate data per O-RAN RU
+  simData -> netPm : Store PM values per O-RAN RU \nand timestamp
+  simData -> simData : aggregate data per O-RAN DU
+  simData -> netPm : Store PM values per O-RAN DU \nand timestamp
+end loop
+
+== Stream-based PM JOB Configuration ==
+alt Unmanaged PM jobs on NFs
+  rApp -> sdnr : configure PM data streaming subscription <R1-OAM(tbc)>
+  sdnr -> nf : <<NETCONF/TLS>> PM Job Creation <O1-CM>
+else  Managed PM jobs on NFs
+  rApp -> pmCoord : configure PM data streaming subscription <R1-OAM(tbc)>
+  pmCoord -> pmCoord : analyze subscription
+  pmCoord -> sdnr : PM Job Creation
+  sdnr -> nf : <<NETCONF/TLS>> PM Job Creation <O1-CM>
+end
+nf -> sdnr : PM Job Created\nincludes http target for stream establishment <O1-CM>
+sdnr -> pmCoord : PM Job Created
+
+== PM Data Streaming ==
+
+nf -> pmCollectStream : <<HTTP/TLS>> establish Streaming Connection \nincludes mapping from streamId to jobId <O1-PM>
+pmCollectStream -> nf : <<HTTP/TLS>> Connection Established returns ConnectionId (wss:url) <O1-PM>
+
+loop while performance job is active
+  nf -> netPm : request data based on PM-Job
+  netPm -> nf : send data
+  nf -> nf : convert simulated PM Data into GPB
+  nf -> pmCollectStream : <<WebSocket>> report PM data via stream unit (wss:url) <O1-PM>
+  pmCollectStream -> pmCollectStream : convert GPB into 3GPP-xml format
+  pmCollectStream -> pmDb : store PM Data (3GPP-XMLformat)
+  pmCollectStream -> mr : PM Data (raw) available\n{jobId,sender,pm-database-query-command}
+end
+
+== File-based PM Job Configuration ==
+
+alt Unmanaged PM jobs on NFs
+  rApp -> sdnr : configure file-based PM data subscription <R1-OAM(tbc)>
+  sdnr -> nf : <<NETCONF/TLS>> PM Job Creation <O1-CM>
+else Managed PM jobs on NFs
+  rApp -> pmCoord : configure file-based PM data subscription <R1-OAM(tbc)>
+  pmCoord -> pmCoord : analyze subscription
+  pmCoord -> sdnr : PM Job Creation
+  sdnr -> nf : <<NETCONF/TLS>> PM Job Creation <O1-CM>
+  nf -> sdnr : PM Job Created <O1-CM>
+  sdnr -> pmCoord : PM Job Created
+end
+
+== PM Data File Collection ==
+
+loop while PM job is active in NF
+  nf -> netPm : request data based on PM-Job
+  netPm -> nf : send data
+  nf -> nf : store simulated PM Data as 3GPP-XML file
+  nf -> ves : File-Ready <O1-PM>
+  ves -> mr : File-Ready
+  mr -> pmDFC : File-Ready
+  pmDFC -> nf : <<(S)FTP/FTPS/SCP/TLS>> Collect/Transfer File <O1-PM>
+  pmDFC -> pmDb : store PM Data (3GPP-XML format)
+  pmDFC -> mr : PM Data (raw) available
+end
+
+== PM Data Conversion (Common) ==
+
+loop while PM Job is active in NF
+  mr -> pmConvert : PM Data (raw) available
+  pmConvert -> pmDb : Collect raw (3GPP-XML format) PM Data
+  pmConvert -> pmConvert : Covert PM data to JSON
+  pmConvert -> pmDb : Store PM Data (json)
+  pmConvert -> mr : PM Data (json) available
+end
+
+' == DME Data Producers & Consumers (Common) ==
+' 
+' loop while PM Job is active in NF
+'   mr -> pmConvert : PM Data (raw) available
+'  pmConvert -> pmDb : Collect raw (3GPP-XML format) PM Data
+'  pmConvert -> pmConvert : Covert PM data to JSON
+'  pmConvert -> pmDb : Store PM Data (json)
+'  pmConvert -> mr : PM Data (json) available
+'end
+
+
+== DME Data Producers & Consumers <<R1 DME>>==
+loop while PM Job is active in NF
+
+  opt RAN PM Data (R1-PM 'streamed ranpm' datatype) is streamed to rApp
+    note over pmProducer, dmeICS : Init RAN PM Data Producer registration with DME (DME Producer)
+    pmProducer -> dmeICS : Register data 'streamed ranpm' type (if not already registered)
+    pmProducer -> dmeICS : Register as 'streamed ranpm' producer
+    note over rApp, dmeICS : rApp creates 'streamed ranpm' subscription (DME Consumer)
+    rApp -> dmeICS : Register data 'streamed ranpm' type (if not already registered)
+    rApp -> dmeICS : Create subscription/job for 'streamed ranpm' data 
+    activate rApp
+    note over rApp, pmProducer : DME  coordinates between DME Producer/Consumer
+    dmeICS -> pmProducer : Job/subscription created - includes job parameters
+    loop while data available / continuous
+      pmProducer -> pmDb : retrieve appropriate PM Data (json)
+      pmProducer -[#Blue]> mr : data: (type : 'streamed ranpm')
+      mr -[#Blue]> rApp: data : (type : 'streamed ranpm')
+      opt wait for new data
+          mr -> pmProducer : PM Data (json) available
+      end
+    end loop 
+    deactivate rApp
+  end opt
+
+  opt RAN PM Data (R1-PM 'stored ranpm' datatype) is produced by influxDB producer
+    note over pmInflux, dmeICS : Init RAN PM Data Producer registration with DME (DME Producer)
+    pmInflux -> dmeICS : Register data 'stored ranpm' type (if not already registered)
+    group #a0a0a090 <color #red>TBC</color>
+      pmInflux -> dmeICS : Register as 'stored ranpm' producer
+      note over rApp, dmeICS : rApp creates 'stored ranpm' subscription (DME Consumer)
+      rApp -> dmeICS : Register data 'stored ranpm' type (if not already registered)
+      rApp -> dmeICS : Create subscription/job for 'streamed ranpm' data 
+      activate rApp
+    end group
+    note over rApp, pmProducer : DME  coordinates between DME Producer/Consumer
+    dmeICS -> pmProducer : Job/subscription created - includes job parameters
+    activate pmProducer
+    loop while data available / continuous
+      pmInflux -> pmDb : retrieve appropriate PM Data (json)
+      pmInflux -> pmDbInflux : store appropriate PM Data (json)
+      pmInflux -> mr : data available: (type : 'stored ranpm')
+      opt wait for new data
+          mr -> pmProducer : PM Data (json) available
+      end
+    end loop 
+    deactivate pmProducer
+    deactivate rApp
+  end opt
+
+  group #a0a0a090 <color #red>TBC</color>
+    ' Currently AIMLFW does not act as a DME consumer to read the InfluxDB. It reads it direct 
+    ' According to the 'current' specs that is fine - AIMLFW is not an 'rApp' 
+    ' However, as the Disaggregated SMo work progressed it will need to use DME. 
+    opt RAN PM Data (R1-PM 'stored ranpm' datatype) is consumed by rApp from influxDB producer
+      group #a0a0a090 <color #red>TBC</color>
+        note over rApp, dmeICS : rApp creates 'stored ranpm' subscription (DME Consumer)
+        rApp -> dmeICS : Register data 'stored ranpm' type (if not already registered)
+        rApp -> dmeICS : Create subscription/job for 'streamed ranpm' data 
+        activate rApp
+      end group
+      loop while data available / continuous
+        rApp -> pmDbInflux : retrieve appropriate PM Data (json)
+        opt wait for new data
+            mr -> rApp : data available: (type : 'stored ranpm')
+        end
+      end loop 
+      deactivate rApp
+    end opt
+  end group
+
+end loop 
+
+' What happens when PM job on NF is removed? (And How?)
+' draft: The SMO wont be informed about new measurements – no ves file ready or no pm-stream based on the PM job.
+' The PM Job can be deactivated (admin-state to locked) or removed via NETCONF operation defined in 3GPP yang modules -> O1.
+
+' Should DME job be automatically removed?
+' draft: Here we should start developing an answer 😊
+' The DME job – does it depend on the PM job or does it control the PM job?
+ 
+
+right footer Copyright 2023 O-RAN-SC Projects NONRTRIC, SIM, OAM\lThis work is licensed under a Creative Commons Attribution 4.0\l International License.\lSPDX-License-Identifier: CC-BY-4.0\n2023-09-21 | o-ran-sc.org oam project | Thanks to PlantUML!
+
+@enduml

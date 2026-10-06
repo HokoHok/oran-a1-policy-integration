@@ -1,0 +1,59 @@
+{
+  "network": {
+    "name": "O-RAN-Network",
+    "center": {
+      "latitude": 40.535,
+      "longitude": -74.447,
+      "aboveMeanSeaLevel": 50
+    },
+    "pattern": {
+      "tower": {
+        "representation": "hexagon"
+      },
+      "smo": {
+        "fiveGCoreCount": 1,
+        "nearRtRicSpiralRadius": 1,
+        "oCloudResourcePoolCount": 1
+      },
+      "nearRtRic": {
+        "oRanCuSpiralRadius": 1
+      },
+      "oRanCu": {
+        "oRanDuSpiralRadius": 1
+      },
+      "oRanDu": {
+        "fronthaulGatewayCount": 0,
+        "towerSpiralRadius": 1,
+        "oRanRuCount": 1
+      },
+      "oRanRu": {
+        "nrCellDuCount": 1
+      },
+      "nrCellDu": {
+        "sectorCount": 1,
+        "cellAngle": 120,
+        "cellScaleFactorForHandoverArea": 20,
+        "maxReach": 400
+      }
+    }
+  },
+  "outputFolder": "output",
+  "generationTasks": {
+    "network_dir": {
+      "enabled": true,
+      "compressed": false
+    },
+    "topology": {
+      "enabled": true,
+      "compressed": true
+    },
+    "svg": {
+      "enabled": true,
+      "compressed": true
+    },
+    "kml": {
+      "enabled": true,
+      "compressed": true
+    }
+  }
+}
